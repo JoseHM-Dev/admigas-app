@@ -1,753 +1,462 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../auth/useAuth";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { Icon } from "@iconify/react";
 import { Link } from "react-router-dom";
-import ModalPersonal from "../ui/Modales/ModalPersonal"; // Importar modal
+
+// Modales
+import ModalPersonal from "../ui/Modales/ModalPersonal";
 import ModalUnidad from "../ui/Modales/ModalUnidad";
 import ModalBanco from "../ui/Modales/ModalBanco";
+import ModalTarifa from "../ui/Modales/ModalTarifa"; // Asegúrate de importar este
 
 export const MainAjustes = () => {
-  const { user, personal } = useAuth();
-  const [profileImage, setProfileImage] = useState(null);
+  const { user, fetchUserData } = useAuth();
+  
+  // Estados de Imagen
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [currentTarifas, setCurrentTarifas] = useState({
-    precio_litro: "",
-    precio_m3: "",
-  });
-  const [newFechaVigente, setNewFechaVigente] = useState(new Date());
-  const [newPrecioLitro, setNewPrecioLitro] = useState("");
-  const [newPrecioM3, setNewPrecioM3] = useState("");
-  const [hasChanges, setHasChanges] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  // Estados para la sección de Personal
-  const [showPersonal, setShowPersonal] = useState(false);
+  // Estados de Tarifas
+  const [currentTarifas, setCurrentTarifas] = useState({
+    precio_litro: "0.00",
+    precio_m3: "0.00",
+    fecha_vigente: null
+  });
+  const [isTarifaModalOpen, setIsTarifaModalOpen] = useState(false);
+
+  // Estados de Tablas
+  const [activeTab, setActiveTab] = useState(null); // 'personal', 'unidad', 'banco' o null
+  
+  // Datos y Estados de Carga
   const [personalList, setPersonalList] = useState([]);
-  const [loadingPersonal, setLoadingPersonal] = useState(false);
+  const [unidadesList, setUnidadesList] = useState([]);
+  const [bancoList, setBancoList] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+
+  // Estados de Modales de Edición
   const [isPersonalModalOpen, setIsPersonalModalOpen] = useState(false);
   const [editingPersonal, setEditingPersonal] = useState(null);
-
-  //estados para la sección de Unidad
-  const [showUnidades, setShowUnidades] = useState(false);
-  const [unidadesList, setUnidadesList] = useState([]);
-  const [loadingUnidades, setLoadingUnidades] = useState(false);
   
-
   const [isUnidadesModalOpen, setIsUnidadesModalOpen] = useState(false);
   const [editingUnidad, setEditingUnidad] = useState(null);
 
-    //estados para la sección de baco
-  const [showBanco, setShowBanco] = useState(false);
-  const [loadingBanco, setLoadingBanco] = useState(false);
-  const [bancoList, setBancoList] = useState([]);
   const [isBancoModalOpen, setIsBancoModalOpen] = useState(false);
   const [editingBanco, setEditingBanco] = useState(null);
 
-  //funciones para personal
-
-  const fetchPersonal = async () => {
-    setLoadingPersonal(true);
+  // --- 1. LÓGICA DE TARIFAS ---
+  const fetchLatestTarifas = useCallback(async () => {
     const { data, error } = await supabase
-      .from("personal")
-      .select("*")
-      .order("nombre", { ascending: true });
+      .from("tarifa")
+      .select("precio_litro, precio_m3, fecha_vigente")
+      .order("id_tarifa", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (error) {
-      console.error("Error fetching personal:", error);
-      alert("Error al cargar el personal.");
-    } else {
-      setPersonalList(data);
-    }
-    setLoadingPersonal(false);
-  };
-
-  const handleTogglePersonal = () => {
-    const willShow = !showPersonal;
-    setShowPersonal(willShow);
-    if (willShow) {
-      fetchPersonal();
-      setShowUnidades(false);
-      setShowBanco(false);
-    }
-  };
-
-  const handleDeletePersonal = async (id) => {
-    if (
-      window.confirm("¿Estás seguro de que quieres eliminar a esta persona?")
-    ) {
-      const { error } = await supabase.from("personal").delete().eq("id", id);
-
-      if (error) {
-        console.error("Error deleting personal:", error);
-        alert("Error al eliminar.");
-      } else {
-        fetchPersonal(); // Recargar la lista
-      }
-    }
-  };
-
-  const handleOpenPersonalModal = (personal = null) => {
-    setEditingPersonal(personal);
-    setIsPersonalModalOpen(true);
-  };
-
-  const handleClosePersonalModal = () => {
-    setEditingPersonal(null);
-    setIsPersonalModalOpen(false);
-  };
-
-  const handleSavePersonal = () => {
-    fetchPersonal(); // Recargar la lista cuando se guarda desde el modal
-  };
-
-  //funciones para unidad
-  const fetchUnidad = async () => {
-    setLoadingUnidades(true);
-    const { data, error } = await supabase
-      .from("unidad")
-      .select("*")
-      .order("num_unidad", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching unidades:", error);
-      alert("Error al cargar las unidades.");
-    } else {
-      setUnidadesList(data);
-    }
-    setLoadingUnidades(false);
-  };
-
-  const handleToggleUnidad = () => {
-    const willShow = !showUnidades;
-    setShowUnidades(willShow);
-    if (willShow) {
-      fetchUnidad();
-      setShowPersonal(false);
-      setShowBanco(false);
-    }
-  };
-
-  const handleOpenUnidadModal = (unidad = null) => {
-    setEditingUnidad(unidad);
-    setIsUnidadesModalOpen(true);
-  };
-
-  const handleCloseUnidadModal = () => {
-    setEditingUnidad(null);
-    setIsUnidadesModalOpen(false);
-  };
-
-  const handleSaveUnidad = () => {
-    fetchUnidad(); // Recargar la lista cuando se guarda desde el modal
-  };
-
-  const fetchBanco = async () => {
-    setLoadingBanco(true);
-    const { data, error } = await supabase
-      .from("datos_bancarios")
-      .select("*")
-      .order("id");
-
-    if (error) {
-      console.error("Error fetching datos bancarios:", error);
-      alert("Error al cargar los datos bancarios.");
-    } else {
-      setBancoList(data);
-    }
-    setLoadingBanco(false);
-  };
-
-  const handleToggleBanco = () => {
-    const willShow = !showBanco;
-    setShowBanco(willShow);
-    if (willShow) {
-      fetchBanco();
-      fetchPersonal(false);
-      setShowUnidades(false)
-    }
-  };
-
-  const handleDeleteBanco = async (id) => {
-    if (
-      window.confirm("¿Estás seguro de que quieres eliminar estos datos?")
-    ) {
-      const { error } = await supabase.from("datos_bancarios").delete().eq("id", id);
-
-      if (error) {
-        console.error("Error deleting datos bancarios:", error);
-        alert("Error al eliminar.");
-      } else {
-        fetchBanco(); // Recargar la lista
-      }
-    }
-  };
-
-  const handleOpenBancoModal = (datos_bancarios = null) => {
-    setEditingBanco(datos_bancarios);
-    setIsBancoModalOpen(true);
-  };
-
-  const handleCloseBancoModal = () => {
-    setEditingBanco(null);
-    setIsBancoModalOpen(false);
-  };
-
-  const handleSaveBanco = () => {
-    fetchBanco(); // Recargar la lista cuando se guarda desde el modal
-  };
-
-
-  useEffect(() => {
-    const fetchLatestTarifas = async () => {
-      const { data, error } = await supabase
-        .from("tarifa")
-        .select("precio_litro, precio_m3")
-        .order("fecha_vigente", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error) {
-        console.error("Error fetching tarifas:", error);
-      } else if (data) {
-        setCurrentTarifas(data);
-      }
-    };
-
-    fetchLatestTarifas();
+    if (error) console.error("Error fetching tarifas:", error);
+    if (data) setCurrentTarifas(data);
   }, []);
 
   useEffect(() => {
-    // Limpiar la URL de previsualización cuando el componente se desmonta
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [previewUrl]);
+    fetchLatestTarifas();
+  }, [fetchLatestTarifas]);
 
-  const handleFileChange = (e) => {
+  // --- 2. LÓGICA DE FOTO DE PERFIL (AUTOMÁTICA) ---
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setProfileImage(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      setHasChanges(true);
-    }
-  };
+    if (!file) return;
 
-  const handleUpdateProfileImage = async () => {
-    if (!profileImage) return;
+    setIsUploadingImage(true);
+    setPreviewUrl(URL.createObjectURL(file)); // Preview inmediato
 
-    const fileName = `${user.id}/${profileImage.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from("avatar")
-      .upload(fileName, profileImage, {
-        cacheControl: "3600",
-        upsert: true,
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // 1. Subir a Storage
+      const { error: uploadError } = await supabase.storage
+        .from("avatar")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // 2. Obtener URL Pública
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatar")
+        .getPublicUrl(fileName);
+
+      // 3. Actualizar Auth User Metadata
+      const { error: updateUserError } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl },
       });
 
-    if (uploadError) {
-      console.error("Error uploading image:", uploadError);
-      return;
-    }
+      if (updateUserError) throw updateUserError;
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("avatar").getPublicUrl(fileName);
-
-    const { error: updateUserError } = await supabase.auth.updateUser({
-      data: { avatar_url: publicUrl },
-    });
-
-    if (updateUserError) {
-      console.error("Error updating user metadata:", updateUserError);
+      alert("Foto de perfil actualizada correctamente.");
+    } catch (error) {
+      console.error("Error subiendo imagen:", error);
+      alert("Error al actualizar la imagen.");
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
-  const handleUpdateTarifas = async () => {
-    if (!newFechaVigente || !newPrecioLitro || !newPrecioM3) return;
+  // --- 3. LÓGICA DE TABLAS (Unificada) ---
+  const fetchData = async (type) => {
+    setLoadingData(true);
+    let tableName = "";
+    let orderCol = "id";
 
-    const { error } = await supabase.from("tarifa").insert([
-      {
-        fecha_vigente: newFechaVigente,
-        precio_litro: newPrecioLitro,
-        precio_m3: newPrecioM3,
-        personal_id: personal.id,
-      },
-    ]);
+    if (type === 'personal') { tableName = "personal"; orderCol = "nombre"; }
+    else if (type === 'unidad') { tableName = "unidad"; orderCol = "num_unidad"; }
+    else if (type === 'banco') { tableName = "datos_bancarios"; orderCol = "id"; }
 
-    if (error) {
-      console.error("Error updating tarifas:", error);
+    const { data, error } = await supabase
+      .from(tableName)
+      .select("*")
+      .order(orderCol, { ascending: true });
+
+    if (!error) {
+      if (type === 'personal') setPersonalList(data);
+      if (type === 'unidad') setUnidadesList(data);
+      if (type === 'banco') setBancoList(data);
+    }
+    setLoadingData(false);
+  };
+
+  const handleToggleTab = (tab) => {
+    if (activeTab === tab) {
+      setActiveTab(null); // Cerrar si ya está abierto
+    } else {
+      setActiveTab(tab);
+      fetchData(tab); // Cargar datos al abrir
     }
   };
 
-  const handleSaveChanges = async () => {
-    if (profileImage) {
-      await handleUpdateProfileImage();
-    }
-    if (newFechaVigente && newPrecioLitro && newPrecioM3) {
-      await handleUpdateTarifas();
-    }
-    setHasChanges(false);
-    alert("Ajustes guardados correctamente");
+  // Manejadores de Eliminación Genéricos
+  const handleDelete = async (table, id, refreshType) => {
+    if (!window.confirm("¿Estás seguro de eliminar este registro?")) return;
+    
+    const { error } = await supabase.from(table).delete().eq("id", id);
+    if (error) alert("Error al eliminar");
+    else fetchData(refreshType);
   };
+
+  const handleTarifaGuardada = async () => {
+  // 1. Actualiza la vista local de esta página
+  await fetchLatestTarifas();
+  // 2. IMPORTANTE: Actualiza toda la app (Dashboard, Ventas, etc.)
+  await fetchUserData(); 
+};
 
   return (
-    <div className="flex flex-col items-center p-4 shadow-4xl">
-      <div className="mb-10 -mt-10 flex items-center flex-col gap-4">
-        <h1 className="text-2xl bg-linear-to-r from-pink-500 via-red-500 to-pink-500 rounded-2xl text-center p-2 text-transparent bg-clip-text font-bold mt-8 transition-all duration-500">
-          Página de Ajustes
-        </h1>
-        <Link
-          to="/dashboard"
-          className="flex bg-[#6432e4] text-white items-center gap-2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 hover:cursor-pointer"
-        >
-          <Icon icon="line-md:arrow-left-circle-twotone" width="24" />
-          Regresar
-        </Link>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      
+      {/* HEADER */}
+      <div className="bg-white shadow-sm border-b border-gray-200 p-4 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+               <Icon icon="mdi:cog-box" className="text-gray-400"/> Ajustes
+            </h1>
+            <Link
+            to="/dashboard"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+            >
+            <Icon icon="mdi:arrow-left" width="20" />
+            Volver
+            </Link>
+        </div>
       </div>
 
-      <section className="flex flex-col items-center gap-8 justify-between bg-black/30 rounded-3xl w-full max-w-4xl shadow-lg p-8">
-        <div className="flex flex-col items-center">
-          <div className="w-64 h-64 mb-4 border-8 border-[#272525] rounded-full flex items-center bg-white justify-center animate-[float_3s_infinite] transition-all duration-500 shadow-lg">
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : user?.user_metadata?.avatar_url ? (
-              <img
-                src={user.user_metadata.avatar_url}
-                alt="User Avatar"
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-gray-500">500x500px</span>
-            )}
-          </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-            id="file-input"
-          />
-          <button
-            onClick={() => document.getElementById("file-input").click()}
-            className="flex gap-2 mb-4 px-4 py-2 bg-linear-to-r from-blue-400 to-emerald-400 text-white rounded-lg hover:-translate-y-1 hover:cursor-pointer transition-all duration-300 shadow-lg"
-          >
-            <Icon icon="line-md:cloud-alt-upload-twotone-loop" width="24" />
-            Subir Imagen
-          </button>
-          <div className="flex gap-4">
-            <div className="flex items-center">
-              {/* Botón para mostrar/ocultar personal */}
-              <button
-                onClick={handleTogglePersonal}
-                className="flex p-2 border gap-4 m-3 font-bold bg-[#6432e4] text-white border-black rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
-              >
-                <Icon icon="line-md:account-alert-loop" width="24" />
-                Personal
-              </button>
-            </div>
-            {/* Botón para mostrar/ocultar unidades */}
-            <div className="flex items-center">
-              <button
-                onClick={handleToggleUnidad}
-                className="flex p-2 border gap-4 font-bold bg-[#6432e4] text-white border-black rounded-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
-              >
-                <Icon icon="hugeicons:tanker-truck" width="24" />
-                Unidad
-              </button>
-            </div>
-            {/* Botón para mostrar/editar datos bancarios */}
-            <div className="flex items-center">
-              <button
-                onClick={handleToggleBanco}
-                className="flex p-2 border gap-4 font-bold bg-[#6432e4] text-white border-black rounded-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
-              >
-                <Icon icon="duo-icons:bank" width="24" />
-                Datos Bancarios
-              </button>
-            </div>
-          </div>
-        </div>
+      <div className="max-w-5xl mx-auto p-4 space-y-8 mt-6">
 
-        
+        {/* 1. SECCIÓN PERFIL */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col md:flex-row items-center gap-8">
+            <div className="relative group">
+                <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden relative bg-gray-100">
+                    {previewUrl ? (
+                        <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : user?.user_metadata?.avatar_url ? (
+                        <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Icon icon="mdi:user" width="48" />
+                        </div>
+                    )}
+                    
+                    {/* Overlay de carga */}
+                    {isUploadingImage && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold">
+                            Subiendo...
+                        </div>
+                    )}
+                </div>
+                
+                {/* Botón flotante de cámara */}
+                <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 shadow-md transition-transform hover:scale-110">
+                    <Icon icon="mdi:camera" width="20" />
+                    <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                </label>
+            </div>
 
-        {/* Tabla de Personal */}
-        {showPersonal && (
-          <div className="w-full max-w-4xl mt-4">
-            <div className="overflow-x-auto shadow-lg rounded-lg">
-              <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-                <thead>
-                  <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white">
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Nombre
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Apellidos
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Teléfono
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Roll
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loadingPersonal ? (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-4 px-4 text-center text-white"
-                      >
-                        Cargando...
-                      </td>
-                    </tr>
-                  ) : personalList.length > 0 ? (
-                    personalList.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="hover:bg-blue-900/50 transition-all duration-150 text-white"
-                      >
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.nombre}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.apellidos}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.telefono}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.roll}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm font-medium">
-                          <div className="flex justify-center space-x-4">
-                            <button
-                              onClick={() => handleOpenPersonalModal(p)}
-                              className="text-yellow-400 hover:text-yellow-600 flex items-center gap-1"
-                            >
-                              <Icon icon="line-md:edit-twotone" width="20" />{" "}
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDeletePersonal(p.id)}
-                              className="text-red-500 hover:text-red-700 flex items-center gap-1"
-                            >
-                              <Icon
-                                icon="line-md:close-circle-twotone"
-                                width="20"
-                              />{" "}
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-4 px-4 text-center text-gray-400"
-                      >
-                        No hay personal registrado.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="text-center md:text-left">
+                <h2 className="text-xl font-bold text-gray-800">Tu Perfil</h2>
+                <p className="text-gray-500 text-sm mt-1">Personaliza tu foto de perfil. Se guardará automáticamente.</p>
+                <div className="mt-2 text-xs font-mono text-gray-400 bg-gray-100 px-3 py-1 rounded-full inline-block">
+                    {user?.email}
+                </div>
             </div>
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={() => handleOpenPersonalModal()}
-                className="flex p-2 border gap-4 m-3 font-bold bg-[#6432e4] text-white border-black rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
-              >
-                <Icon icon="line-md:plus-circle-twotone" width="24" />
-                Agregar Personal
-              </button>
-            </div>
-          </div>
-        )}
+        </section>
 
-        {/* Tabla de BANCO */}
-        {showBanco && (
-          <div className="w-full max-w-4xl mt-4">
-            <div className="overflow-x-auto shadow-lg rounded-lg">
-              <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-                <thead>
-                  <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white">
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Apodo
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Banco
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Cuenta
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Clave
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loadingBanco ? (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-4 px-4 text-center text-white"
-                      >
-                        Cargando...
-                      </td>
-                    </tr>
-                  ) : bancoList.length > 0 ? (
-                    bancoList.map((p) => (
-                      <tr
-                        key={p.id}
-                        className="hover:bg-blue-900/50 transition-all duration-150 text-white"
-                      >
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.apodo}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.nom_banco}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.cuenta}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {p.clave_int}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm font-medium">
-                          <div className="flex justify-center space-x-4">
-                            <button
-                              onClick={() => handleOpenBancoModal(p)}
-                              className="text-yellow-400 hover:text-yellow-600 flex items-center gap-1"
-                            >
-                              <Icon icon="line-md:edit-twotone" width="20" />{" "}
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDeleteBanco(p.id)}
-                              className="text-red-500 hover:text-red-700 flex items-center gap-1"
-                            >
-                              <Icon
-                                icon="line-md:close-circle-twotone"
-                                width="20"
-                              />{" "}
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-4 px-4 text-center text-gray-400"
-                      >
-                        No hay personal registrado.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-center mt-4">
-              <button
-                onClick={() => handleOpenBancoModal()}
-                className="flex p-2 border gap-4 m-3 font-bold bg-[#6432e4] text-white border-black rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
-              >
-                <Icon icon="line-md:plus-circle-twotone" width="24" />
-                Agregar Banco
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tabla de Unidades */}
-        {showUnidades && (
-          <div className="w-full max-w-4xl mt-4">
-            <div className="overflow-x-auto shadow-lg rounded-lg">
-              <table className="min-w-full bg-black/10 border-gray-500 overflow-hidden rounded-lg ">
-                <thead>
-                  <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white">
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Empresa
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Unidad
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Permiso de Reparto
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loadingUnidades ? (
-                    <tr>
-                      <td
-                        colSpan="4"
-                        className="py-4 px4 text-center text-white"
-                      >
-                        Cargando...
-                      </td>
-                    </tr>
-                  ) : unidadesList.length > 0 ? (
-                    unidadesList.map((u) => (
-                      <tr
-                        key={u.id}
-                        className="hover:bg-blue-900/50 transition-all duration-150 text-white"
-                      >
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {u.empresa}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {u.num_unidad}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm">
-                          {u.permiso_reparto || ""}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm font-medium">
-                          <div className="flex justify-center space-x-4">
-                            <button
-                              onClick={() => handleOpenUnidadModal(u)}
-                              className="text-yellow-400 hover:text-yellow-600 flex items-center gap-1"
-                            >
-                              <Icon icon="line-md:edit-twotone" width="20" />{" "}
-                              Editar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="4"
-                        className="py-4 px-4 text-center text-gray-400"
-                      >
-                        No hay unidades registradas.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            {!loadingUnidades && unidadesList.length === 0 && (
-              <div className="flex justify-center mt-4">
+        {/* 2. SECCIÓN TARIFAS (PRECIOS) */}
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                       <Icon icon="mdi:tag-multiple" className="text-blue-500" /> Tarifas Vigentes
+                    </h2>
+                    <p className="text-gray-500 text-sm mt-1">Precios actuales aplicados a las ventas.</p>
+                </div>
                 <button
-                  onClick={() => handleOpenUnidadModal()}
-                  className="flex p-2 border gap-4 m-3 font-bold bg-[#6432e4] text-white border-black rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
+                    onClick={() => setIsTarifaModalOpen(true)}
+                    className="px-5 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all font-medium flex items-center gap-2"
                 >
-                  <Icon icon="line-md:plus-circle-twotone" width="24" />
-                  Agregar Unidad
+                    <Icon icon="mdi:plus" width="20" /> Nueva Tarifa
                 </button>
-              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Card Precio Litro */}
+                <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-blue-500 to-blue-600 p-6 text-white shadow-lg shadow-blue-200">
+                    <div className="absolute top-0 right-0 -mt-4 -mr-4 opacity-20">
+                        <Icon icon="mdi:water-percent" width="100" />
+                    </div>
+                    <p className="text-blue-100 text-sm font-medium uppercase tracking-wider mb-2">Precio por Litro</p>
+                    <div className="text-4xl font-extrabold flex items-baseline gap-1">
+                        <span className="text-2xl opacity-70">$</span>
+                        {currentTarifas.precio_litro}
+                    </div>
+                </div>
+
+                {/* Card Precio M3 */}
+                <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 p-6 text-white shadow-lg shadow-emerald-200">
+                    <div className="absolute top-0 right-0 -mt-4 -mr-4 opacity-20">
+                        <Icon icon="mdi:cube-outline" width="100" />
+                    </div>
+                    <p className="text-emerald-100 text-sm font-medium uppercase tracking-wider mb-2">Precio por M³</p>
+                    <div className="text-4xl font-extrabold flex items-baseline gap-1">
+                        <span className="text-2xl opacity-70">$</span>
+                        {currentTarifas.precio_m3}
+                    </div>
+                </div>
+            </div>
+            
+            {currentTarifas.fecha_vigente && (
+                <div className="mt-4 text-center text-xs text-gray-400">
+                    Última actualización: {new Date(currentTarifas.fecha_vigente + 'T00:00:00').toLocaleDateString()}
+                </div>
             )}
-          </div>
+        </section>
+
+        {/* 3. SECCIÓN GESTIÓN (TABS) */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <MenuCard 
+                title="Personal" 
+                icon="mdi:account-group" 
+                color="indigo" 
+                isActive={activeTab === 'personal'}
+                onClick={() => handleToggleTab('personal')}
+            />
+            <MenuCard 
+                title="Unidades" 
+                icon="mdi:truck" 
+                color="orange" 
+                isActive={activeTab === 'unidad'}
+                onClick={() => handleToggleTab('unidad')}
+            />
+            <MenuCard 
+                title="Bancos" 
+                icon="mdi:bank" 
+                color="pink" 
+                isActive={activeTab === 'banco'}
+                onClick={() => handleToggleTab('banco')}
+            />
+        </section>
+
+        {/* 4. CONTENIDO DE LAS TABLAS (Expandable) */}
+        {activeTab && (
+            <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-700 text-lg capitalize">{activeTab}</h3>
+                    <button 
+                        onClick={() => {
+                            if (activeTab === 'personal') setIsPersonalModalOpen(true);
+                            if (activeTab === 'unidad') setIsUnidadesModalOpen(true);
+                            if (activeTab === 'banco') setIsBancoModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    >
+                        <Icon icon="mdi:plus" /> Agregar Nuevo
+                    </button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    {loadingData ? (
+                        <div className="p-10 text-center text-gray-500">
+                            <Icon icon="line-md:loading-loop" width="30" className="mx-auto mb-2" />
+                            Cargando datos...
+                        </div>
+                    ) : (
+                        <TableContent 
+                            type={activeTab} 
+                            data={activeTab === 'personal' ? personalList : activeTab === 'unidad' ? unidadesList : bancoList}
+                            onEdit={(item) => {
+                                if (activeTab === 'personal') { setEditingPersonal(item); setIsPersonalModalOpen(true); }
+                                if (activeTab === 'unidad') { setEditingUnidad(item); setIsUnidadesModalOpen(true); }
+                                if (activeTab === 'banco') { setEditingBanco(item); setIsBancoModalOpen(true); }
+                            }}
+                            onDelete={(id) => handleDelete(
+                                activeTab === 'banco' ? 'datos_bancarios' : activeTab, 
+                                id, 
+                                activeTab
+                            )}
+                        />
+                    )}
+                </div>
+            </section>
         )}
 
-        <div className="p-2 mb-6 flex flex-col items-center w-full">
-          <h2 className="text-2xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] font-bold mb-4">
-            Modificar Tarifas
-          </h2>
-          <div className="mb-4 text-white bg-linear-to-r from-blue-400 to-emerald-400 p-4 rounded-lg shadow-md">
-            <p className="flex gap-2 items-center">
-              Precio por Litro Actual:{" "}
-              <strong className="text-2xl text-transparent bg-clip-text bg-linear-to-r from-pink-500 via-red-500 to-pink-500">
-                ${currentTarifas.precio_litro}
-              </strong>
-            </p>
-            <p className="flex gap-2 items-center">
-              Precio por m³ Actual:{" "}
-              <strong className="text-2xl text-transparent bg-clip-text bg-linear-to-r from-pink-500 via-red-500 to-pink-500">
-                ${currentTarifas.precio_m3}
-              </strong>
-            </p>
-          </div>
-          <div className="flex flex-col gap-4">
-            <DatePicker
-              selected={newFechaVigente}
-              onChange={(date) => {
-                setNewFechaVigente(date);
-                setHasChanges(true);
-              }}
-              className="p-2 rounded bg-gray-400 text-white text-center hover:cursor-pointer hover:-translate-y-1 transition-all duration-300 shadow-lg"
-            />
-            <input
-              type="number"
-              placeholder="Nuevo Precio por Litro"
-              value={newPrecioLitro}
-              onChange={(e) => {
-                setNewPrecioLitro(e.target.value);
-                setHasChanges(true);
-              }}
-              className="p-2 rounded bg-gray-400 text-white text-center"
-            />
-            <input
-              type="number"
-              placeholder="Nuevo Precio por m³"
-              value={newPrecioM3}
-              onChange={(e) => {
-                setNewPrecioM3(e.target.value);
-                setHasChanges(true);
-              }}
-              className="p-2 rounded bg-gray-400 text-white text-center"
-            />
-          </div>
-        </div>
-      </section>
-
-      <div className="flex p-2 gap-4 mt-8">
-        <button
-          onClick={handleSaveChanges}
-          disabled={!hasChanges}
-          className="flex p-2 bg-[#6432e4] text-white items-center gap-2 border border-gray-300 rounded-md shadow-lg focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 hover:cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          <Icon
-            icon="line-md:circle-to-confirm-circle-twotone-transition"
-            width="24"
-          />
-          Guardar Ajustes
-        </button>
       </div>
 
+      {/* MODALES */}
       <ModalPersonal
         isOpen={isPersonalModalOpen}
-        onClose={handleClosePersonalModal}
+        onClose={() => { setIsPersonalModalOpen(false); setEditingPersonal(null); }}
         personalData={editingPersonal}
-        onSave={handleSavePersonal}
+        onSave={() => fetchData('personal')}
       />
 
       <ModalUnidad
         isOpen={isUnidadesModalOpen}
-        onClose={handleCloseUnidadModal}
+        onClose={() => { setIsUnidadesModalOpen(false); setEditingUnidad(null); }}
         unidadData={editingUnidad}
-        onSave={handleSaveUnidad}
+        onSave={() => fetchData('unidad')}
       />
 
       <ModalBanco
         isOpen={isBancoModalOpen}
-        onClose={handleCloseBancoModal}
+        onClose={() => { setIsBancoModalOpen(false); setEditingBanco(null); }}
         bancoData={editingBanco}
-        onSave={handleSaveBanco}
-        />
+        onSave={() => fetchData('banco')}
+      />
+
+      <ModalTarifa
+        isOpen={isTarifaModalOpen}
+        onClose={() => setIsTarifaModalOpen(false)}
+        onSave={handleTarifaGuardada}
+      />
     </div>
   );
 };
+
+// --- COMPONENTES AUXILIARES ---
+
+// 1. Tarjeta de Menú
+const MenuCard = ({ title, icon, color, isActive, onClick }) => {
+    const colors = {
+        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100',
+        orange: 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100',
+        pink: 'bg-pink-50 text-pink-600 border-pink-200 hover:bg-pink-100',
+    };
+    
+    return (
+        <button 
+            onClick={onClick}
+            className={`
+                p-6 rounded-2xl border transition-all duration-200 flex items-center gap-4 text-left w-full
+                ${isActive ? 'ring-2 ring-offset-2 ring-blue-500 shadow-md' : 'shadow-sm hover:shadow-md'}
+                bg-white border-gray-100
+            `}
+        >
+            <div className={`p-3 rounded-xl ${colors[color]}`}>
+                <Icon icon={icon} width="24" />
+            </div>
+            <div>
+                <h3 className="font-bold text-gray-800">{title}</h3>
+                <p className="text-xs text-gray-400 font-medium">Gestionar {title.toLowerCase()}</p>
+            </div>
+            <div className="ml-auto text-gray-300">
+                <Icon icon={isActive ? "mdi:chevron-up" : "mdi:chevron-down"} width="24" />
+            </div>
+        </button>
+    )
+}
+
+// 2. Contenido de Tabla Dinámico
+const TableContent = ({ type, data, onEdit, onDelete }) => {
+    if (data.length === 0) return <div className="p-8 text-center text-gray-500 italic">No hay registros disponibles.</div>;
+
+    return (
+        <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50">
+                <tr>
+                    {type === 'personal' && (
+                        <>
+                            <Th>Nombre</Th><Th>Teléfono</Th><Th>Cargo</Th><Th>Acciones</Th>
+                        </>
+                    )}
+                    {type === 'unidad' && (
+                        <>
+                            <Th>Empresa</Th><Th>Unidad</Th><Th>Permiso</Th><Th>Acciones</Th>
+                        </>
+                    )}
+                    {type === 'banco' && (
+                        <>
+                            <Th>Banco</Th><Th>Titular</Th><Th>Cuenta</Th><Th>Acciones</Th>
+                        </>
+                    )}
+                </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+                {data.map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50/50">
+                         {type === 'personal' && (
+                            <>
+                                <Td><span className="font-medium text-gray-900">{item.nombre} {item.apellidos}</span></Td>
+                                <Td>{item.telefono}</Td>
+                                <Td><span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">{item.roll}</span></Td>
+                            </>
+                        )}
+                        {type === 'unidad' && (
+                            <>
+                                <Td>{item.empresa}</Td>
+                                <Td><span className="font-bold text-gray-800">{item.num_unidad}</span></Td>
+                                <Td>{item.permiso_reparto || '-'}</Td>
+                            </>
+                        )}
+                        {type === 'banco' && (
+                            <>
+                                <Td>{item.nom_banco} <span className="text-xs text-gray-400">({item.apodo})</span></Td>
+                                <Td>{item.nom_responsable}</Td>
+                                <Td className="font-mono text-xs">{item.cuenta}</Td>
+                            </>
+                        )}
+                        <Td>
+                            <div className="flex gap-3 justify-center">
+                                <button onClick={() => onEdit(item)} className="text-amber-500 hover:text-amber-600 transition-colors" title="Editar">
+                                    <Icon icon="mdi:pencil" width="18" />
+                                </button>
+                                <button onClick={() => onDelete(item.id)} className="text-red-400 hover:text-red-600 transition-colors" title="Eliminar">
+                                    <Icon icon="mdi:trash-can" width="18" />
+                                </button>
+                            </div>
+                        </Td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
+const Th = ({ children }) => <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{children}</th>;
+const Td = ({ children, className }) => <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center ${className}`}>{children}</td>;

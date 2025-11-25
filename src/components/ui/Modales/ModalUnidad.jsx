@@ -1,47 +1,49 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../../supabaseClient';
-import { useAuth } from '../../../auth/useAuth';
+import { useState, useEffect } from "react";
+import { supabase } from "../../../supabaseClient";
+import { useAuth } from "../../../auth/useAuth";
+import { Icon } from "@iconify/react"; // Importamos iconos
 
 const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
   const { personal } = useAuth();
   const [formData, setFormData] = useState({
-    empresa: '',
-    num_unidad: '',
-    capacidad: '',
-    permiso_reparto: '',
-    telefono_1: '',
-    telefono_2: '',
-    telefono_3: '',
-    telefono_4: '',
+    empresa: "",
+    num_unidad: "",
+    capacidad: "",
+    permiso_reparto: "",
+    telefono_1: "",
+    telefono_2: "",
+    telefono_3: "",
+    telefono_4: "",
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       if (unidadData) {
         setFormData({
-          empresa: unidadData.empresa || '',
-          num_unidad: unidadData.num_unidad || '',
-          capacidad: unidadData.capacidad || '',
-          permiso_reparto: unidadData.permiso_reparto || '',
-          telefono_1: unidadData.telefono_1 || '',
-          telefono_2: unidadData.telefono_2 || '',
-          telefono_3: unidadData.telefono_3 || '',
-          telefono_4: unidadData.telefono_4 || '',
+          empresa: unidadData.empresa || "",
+          num_unidad: unidadData.num_unidad || "",
+          capacidad: unidadData.capacidad || "",
+          permiso_reparto: unidadData.permiso_reparto || "",
+          telefono_1: unidadData.telefono_1 || "",
+          telefono_2: unidadData.telefono_2 || "",
+          telefono_3: unidadData.telefono_3 || "",
+          telefono_4: unidadData.telefono_4 || "",
         });
       } else {
         setFormData({
-          empresa: '',
-          num_unidad: '',
-          capacidad: '',
-          permiso_reparto: '',
-          telefono_1: '',
-          telefono_2: '',
-          telefono_3: '',
-          telefono_4: '',
+          empresa: "",
+          num_unidad: "",
+          capacidad: "",
+          permiso_reparto: "",
+          telefono_1: "",
+          telefono_2: "",
+          telefono_3: "",
+          telefono_4: "",
         });
       }
-      setError(''); // Limpiar errores al abrir el modal
+      setError("");
     }
   }, [unidadData, isOpen]);
 
@@ -52,145 +54,180 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
+    setIsSubmitting(true);
 
-    let error = null;
+    // Sanear datos: convertir "" a null
+    const datosParaEnviar = { ...formData };
+    Object.keys(datosParaEnviar).forEach((key) => {
+      if (datosParaEnviar[key] === "") {
+        datosParaEnviar[key] = null;
+      }
+    });
 
-    if (unidadData) {
-      // Actualizar unidad existente
-      const { error: updateError } = await supabase
-        .from('unidad')
-        .update(formData)
-        .eq('id', unidadData.id);
-      error = updateError;
-    } else {
-      // Crear nueva unidad
-      const { error: insertError } = await supabase
-        .from('unidad')
-        .insert({ ...formData, personal_id: personal.id });
-      error = insertError;
-    }
+    let errorResult = null;
 
-    if (error) {
-      console.error('Error saving data:', error);
-      setError(`Error al guardar los cambios: ${error.message}`);
-    } else {
+    try {
+      if (unidadData) {
+        const { error } = await supabase
+          .from("unidad")
+          .update(datosParaEnviar)
+          .eq("id", unidadData.id);
+        errorResult = error;
+      } else {
+        const { error } = await supabase
+          .from("unidad")
+          .insert({ ...datosParaEnviar, personal_id: personal.id });
+        errorResult = error;
+      }
+
+      if (errorResult) throw errorResult;
+
       onSave();
       onClose();
+    } catch (err) {
+      console.error("Error saving data:", err);
+      setError(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">
-          {unidadData ? 'Editar Unidad' : 'Agregar Nueva Unidad'}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="empresa" className="block text-sm font-medium text-gray-700">Empresa</label>
-            <input
-              type="text"
-              name="empresa"
-              id="empresa"
-              value={formData.empresa}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
+    // Fondo oscuro con efecto borroso (Glassmorphism simple)
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-sm p-4 transition-all duration-300">
+      {/* Contenedor Principal con animación de entrada */}
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
+        {/* Encabezado con Gradiente */}
+        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
+              <Icon
+                icon="mdi:truck-fast-outline"
+                className="text-white w-8 h-8"
+              />
+            </div>
+            <h2 className="text-2xl font-bold text-white tracking-wide">
+              {unidadData ? "Editar Unidad" : "Registrar Unidad"}
+            </h2>
           </div>
-          <div>
-            <label htmlFor="num_unidad" className="block text-sm font-medium text-gray-700">Número de Unidad</label>
-            <input
-              type="text"
-              name="num_unidad"
-              id="num_unidad"
-              value={formData.num_unidad}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
+          <button
+            onClick={onClose}
+            className="text-white/80 hover:text-white transition-colors"
+          >
+            <Icon icon="mdi:close" width="28" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-8">
+          {/* Grid Layout: 2 columnas para aprovechar espacio */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Sección: Información General */}
+            <div className="space-y-4 md:col-span-2">
+              <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold border-b pb-1 mb-3 flex items-center gap-2">
+                <Icon icon="mdi:information-outline" /> Datos Generales
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputGroup
+                  label="Empresa"
+                  icon="mdi:domain"
+                  name="empresa"
+                  value={formData.empresa}
+                  onChange={handleChange}
+                  placeholder="Ej. Gas Express"
+                />
+                <InputGroup
+                  label="Número Económico"
+                  icon="mdi:numeric"
+                  name="num_unidad"
+                  value={formData.num_unidad}
+                  onChange={handleChange}
+                  placeholder="Ej. U-45"
+                />
+                <InputGroup
+                  label="Capacidad (Lts)"
+                  icon="mdi:beaker-outline"
+                  name="capacidad"
+                  value={formData.capacidad}
+                  onChange={handleChange}
+                  placeholder="Ej. 5000"
+                />
+                <InputGroup
+                  label="Permiso CRE"
+                  icon="mdi:file-document-outline"
+                  name="permiso_reparto"
+                  value={formData.permiso_reparto}
+                  onChange={handleChange}
+                  placeholder="LP/1234/..."
+                />
+              </div>
+            </div>
+
+            {/* Sección: Contacto */}
+            <div className="space-y-4 md:col-span-2 mt-2">
+              <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold border-b pb-1 mb-3 flex items-center gap-2">
+                <Icon icon="mdi:phone-classic" /> Teléfonos de Contacto
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((num) => (
+                  <InputGroup
+                    key={num}
+                    label={`Teléfono ${num}`}
+                    icon="mdi:phone"
+                    name={`telefono_${num}`}
+                    value={formData[`telefono_${num}`]}
+                    onChange={handleChange}
+                    placeholder="55..."
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-          <div>
-            <label htmlFor="capacidad" className="block text-sm font-medium text-gray-700">Capacidad</label>
-            <input
-              type="text"
-              name="capacidad"
-              id="capacidad"
-              value={formData.capacidad}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="permiso_reparto" className="block text-sm font-medium text-gray-700">Permiso de Reparto</label>
-            <input
-              type="text"
-              name="permiso_reparto"
-              id="permiso_reparto"
-              value={formData.permiso_reparto}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="telefono_1" className="block text-sm font-medium text-gray-700">Teléfono 1</label>
-            <input
-              type="text"
-              name="telefono_1"
-              id="telefono_1"
-              value={formData.telefono_1}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="telefono_2" className="block text-sm font-medium text-gray-700">Teléfono 2</label>
-            <input
-              type="text"
-              name="telefono_2"
-              id="telefono_2"
-              value={formData.telefono_2}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="telefono_3" className="block text-sm font-medium text-gray-700">Teléfono 3</label>
-            <input
-              type="text"
-              name="telefono_3"
-              id="telefono_3"
-              value={formData.telefono_3}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          <div>
-            <label htmlFor="telefono_4" className="block text-sm font-medium text-gray-700">Teléfono 4</label>
-            <input
-              type="text"
-              name="telefono_4"
-              id="telefono_4"
-              value={formData.telefono_4}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <div className="flex justify-end space-x-4">
+
+          {/* Mensaje de Error */}
+          {error && (
+            <div className="mt-6 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-2 rounded-r">
+              <Icon icon="mdi:alert-circle" />
+              <span className="text-sm font-medium">{error}</span>
+            </div>
+          )}
+
+          {/* Botones de Acción */}
+          <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-200 outline-none"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              disabled={isSubmitting}
+              className={`
+                px-6 py-2.5 rounded-lg text-white font-medium shadow-lg shadow-blue-500/30
+                flex items-center gap-2 transition-all transform active:scale-95
+                ${
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:-translate-y-0.5"
+                }
+              `}
             >
-              {unidadData ? 'Guardar Cambios' : 'Crear Unidad'}
+              {isSubmitting ? (
+                <>
+                  <Icon icon="mdi:loading" className="animate-spin" />{" "}
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Icon icon="mdi:content-save-check" /> Guardar Unidad
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -198,5 +235,39 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
     </div>
   );
 };
+
+// Componente Reutilizable para Inputs (lo hace más limpio)
+const InputGroup = ({
+  label,
+  icon,
+  name,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}) => (
+  <div className="group">
+    <label
+      htmlFor={name}
+      className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1"
+    >
+      {label}
+    </label>
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+        <Icon icon={icon} width="20" />
+      </div>
+      <input
+        type={type}
+        name={name}
+        id={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="block w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-200 sm:text-sm shadow-sm"
+      />
+    </div>
+  </div>
+);
 
 export default ModalUnidad;

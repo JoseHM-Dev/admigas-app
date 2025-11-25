@@ -1,10 +1,12 @@
 import React, { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { supabase } from "../supabaseClient";
 import Factura from "../components/ui/Factura";
 import { Icon } from "@iconify/react";
+import {PDFDownloadLink} from "@react-pdf/renderer";
+import FacturaPDF from "../components/ui/FacturaPDF";
+
 
 const FacturaPage = () => {
   const location = useLocation();
@@ -38,43 +40,25 @@ const FacturaPage = () => {
     );
   }
 
-  const handleDownloadPdf = async () => {
+
+
+  const handleDownloadImage = async () => {
     const input = facturaRef.current;
     if (!input) return;
 
     const canvas = await html2canvas(input, {
-      scale: 2, // Aumentar la escala para mayor resolución
+      scale: 2,
       useCORS: true,
       allowTaint: true,
-      logging: false, // Habilitar logs para depuración si es necesario
-      backgroundColor: "#ffffff", // Asegura fondo blanco si la img falla
     });
 
     const imgData = canvas.toDataURL("image/png");
-
-    // Tu componente mide 800px x 1100px.
-    const pdfWidth = 800;
-    const pdfHeight = 1100;
-
-    // Usar las dimensiones del componente (en px) para el PDF
-    const componentWidth = input.offsetWidth;
-    const componentHeight = input.offsetHeight;
-
-    // Crear el PDF usando 'pt' como unidad. 1px ~ 0.75pt a 96 DPI.
-    // Para simplificar, podemos definir el PDF en las mismas dimensiones
-    // y dejar que la librería maneje las unidades internas.
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "px",
-      format: [pdfWidth, pdfHeight], // El PDF tendrá el tamaño exacto de la factura
-    });
-
-    // Añadir la imagen al PDF, ocupando todo el espacio
-    pdf.addImage(imgData, "PNG", 0, 0, componentWidth, componentHeight);
-
-    pdf.save(`factura - Dep${departamento.no_depto}.pdf`);
+    const link = document.createElement("a");
+    link.href = imgData;
+    link.download = `factura - Dep${departamento.no_depto}.png`;
+    link.click();
   };
-
+  
   const handleConfirmAndUpload = async () => {
     setIsSaving(true);
     setError(null);
@@ -196,13 +180,38 @@ const FacturaPage = () => {
             Volver
           </button>
           <div className="flex gap-4">
-            <button
-              onClick={handleDownloadPdf}
-              className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 flex gap-2 px-4 rounded hover:cursor-pointer"
+          <button
+              onClick={handleDownloadImage}
+              className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 flex gap-2 px-4 rounded hover:cursor-pointer"
             >
               <Icon icon="line-md:download-twotone-loop" width="24" />
-              Descargar PDF
+              Descargar Imagen
             </button>
+            {/* 2. AQUÍ ESTÁ EL CAMBIO CLAVE: EL BOTÓN PDF "NATIVO" */}
+          <PDFDownloadLink
+            document={
+              <FacturaPDF
+                facturaData={facturaData}
+                departamento={departamento}
+                selectedTarifa={selectedTarifa}
+                selectedCuenta={selectedCuenta}
+                saldoAnterior={0} // Puedes pasar el saldo si lo tienes calculado
+              />
+            }
+            fileName={`Factura_${departamento.no_depto}.pdf`}
+            className="text-decoration-none"
+          >
+            {({ loading }) => (
+              <button
+                className={`font-bold py-2 px-4 rounded flex items-center gap-2 ${
+                  loading ? "bg-green-300 cursor-wait" : "bg-green-600 hover:bg-green-700"
+                } text-white`}
+              >
+                <Icon icon="mdi:file-pdf-box" /> 
+                {loading ? "Generando..." : "Descargar PDF"}
+              </button>
+            )}
+          </PDFDownloadLink>
             <button
               onClick={handleConfirmAndUpload}
               disabled={isSaving}

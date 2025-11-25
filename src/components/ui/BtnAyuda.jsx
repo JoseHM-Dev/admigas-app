@@ -66,7 +66,7 @@ export const BtnAyuda = ({ texto, isDropdown, services, iconName }) => {
         </div>
 
         {isOpen && (
-          <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white divide-y divide-gray-100 focus:outline-none ring-1 ring-black/30 ring-opacity-5 z-50">
+          <div className="origin-top-right absolute mt-2 w-56 rounded-md shadow-lg bg-white divide-y divide-gray-100 focus:outline-none ring-1 ring-black/30 ring-opacity-5 z-50">
             <div className="py-1">
               {services.map((service) => (
                 <a

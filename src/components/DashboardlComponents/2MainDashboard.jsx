@@ -270,7 +270,7 @@ export const MainDashboard = () => {
 
   return (
     <main>
-      <section className="flex justify-between m-auto p-8 hover:cursor-pointer max-w-[800px] md:items-center ">
+      <section className="hidden  justify-between m-auto p-8 hover:cursor-pointer max-w-[800px] sm:flex md:items-center ">
         <div onClick={() => navigate("/ventas")}>
           <BtnImgSpan text={"Ventas"} imagen={IconNuevaVenta} />
         </div>

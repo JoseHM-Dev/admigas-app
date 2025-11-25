@@ -5,33 +5,44 @@ import { useAuth } from '../../../auth/useAuth';
 
 const ModalBanco = ({ isOpen, onClose, bancoData, onSave }) => {
   const { personal } = useAuth();
+  
+  // Agregamos num_tarjeta al estado inicial
   const [formData, setFormData] = useState({
     nom_responsable: "",
-    telefono: "",
     apodo: "",
     banco: "",
     cuenta: "",
     clave_int: "",
+    num_tarjeta: "", // Nuevo campo
   });
+  
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (bancoData) {
-      setFormData({
-        nom_responsable: bancoData.nom_responsable || "",
-        apodo: bancoData.apodo || "",
-        banco: bancoData.banco || "",
-        cuenta: bancoData.cuenta || "",
-        clave_int: bancoData.clave_int || "",
-      });
-    } else {
-      setFormData({
-        nom_responsable: "",
-        apodo: "",
-        banco: "",
-        cuenta: "",
-        clave_int: "",
-      });
+    if (isOpen) {
+      if (bancoData) {
+        setFormData({
+          nom_responsable: bancoData.nom_responsable || "",
+          telefono: bancoData.telefono || "",
+          apodo: bancoData.apodo || "",
+          banco: bancoData.banco || "",
+          cuenta: bancoData.cuenta || "",
+          clave_int: bancoData.clave_int || "",
+          num_tarjeta: bancoData.num_tarjeta || "", // Cargar dato existente
+        });
+      } else {
+        // Resetear formulario para registro nuevo
+        setFormData({
+          nom_responsable: "",
+          apodo: "",
+          banco: "",
+          cuenta: "",
+          clave_int: "",
+          num_tarjeta: "",
+        });
+      }
+      setError(""); // Limpiar errores al abrir
     }
   }, [bancoData, isOpen]);
 
@@ -46,29 +57,44 @@ const ModalBanco = ({ isOpen, onClose, bancoData, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
+    setError("");
 
-    let error;
-    if (bancoData) {
-      const { error: updateError } = await supabase
-        .from("datos_bancarios")
-        .update(formData)
-        .eq("id", bancoData.id);
-      error = updateError;
-    } else {
-      const { error: insertError } = await supabase
-        .from("datos_bancarios")
-        .insert({ ...formData, personal_id: personal.id });
-      error = insertError;
-    }
+    // 1. SANITIZACIÓN DE DATOS (Vital para campos numéricos opcionales)
+    // Convertimos cadenas vacías "" a null para que PostgreSQL no devuelva error
+    const datosParaEnviar = { ...formData };
+    Object.keys(datosParaEnviar).forEach((key) => {
+      if (datosParaEnviar[key] === "") {
+        datosParaEnviar[key] = null;
+      }
+    });
 
-    setIsSaving(false);
+    let errorResult = null;
 
-    if (error) {
-      console.error("Error al guardar los datos bancarios:", error);
-      alert("Error al guardar los datos bancarios: ${error.message}");
-    } else {
+    try {
+      if (bancoData) {
+        // Actualizar
+        const { error: updateError } = await supabase
+          .from("datos_bancarios")
+          .update(datosParaEnviar)
+          .eq("id", bancoData.id);
+        errorResult = updateError;
+      } else {
+        // Insertar
+        const { error: insertError } = await supabase
+          .from("datos_bancarios")
+          .insert({ ...datosParaEnviar, personal_id: personal.id });
+        errorResult = insertError;
+      }
+
+      if (errorResult) throw errorResult;
+
       onSave();
       onClose();
+    } catch (err) {
+      console.error("Error al guardar:", err);
+      setError(`Error al guardar: ${err.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -77,79 +103,143 @@ const ModalBanco = ({ isOpen, onClose, bancoData, onSave }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-2xl shadow-2xl m-4 max-w-md w-full flex flex-col items-center relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 transition-colors"
-        >
-          <Icon icon="line-md:close-circle" width="28" />
-        </button>
+    // Fondo oscuro con efecto Glass (blur)
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-sm p-4 transition-all duration-300">
+      
+      {/* Contenedor Principal con animación */}
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
+        
+        {/* Encabezado con Gradiente */}
+        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
+              <Icon icon="mdi:bank-outline" className="text-white w-7 h-7" />
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-white tracking-wide">
+              {bancoData ? "Editar Cuenta" : "Registrar Datos Bancarios"}
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+            <Icon icon="mdi:close" width="28" />
+          </button>
+        </div>
 
-        <h2 className="font-extrabold text-2xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] mb-6">
-          {bancoData ? "Editar Cuenta Bancaria" : "Agregar Datos Bancarios"}
-        </h2>
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-          <input
-            type="text"
-            name="nom_responsable"
-            placeholder="A que nombre esta la tarjeta"
-            value={formData.nom_responsable}
-            onChange={handleChange}
-            required
-            className="border p-3 rounded-lg text-center focus:ring-2 focus:ring-[#6d72f9] outline-none transition"
-          />
-          <input
-            type="text"
-            name="apodo"
-            placeholder="Apodo Ej. Cuenta Personal"
-            value={formData.apodo}
-            onChange={handleChange}
-            required
-            className="border p-3 rounded-lg text-center focus:ring-2 focus:ring-[#6d72f9] outline-none transition"
-          />
-          <input
-            type="text"
-            name="banco"
-            placeholder="Nombre del Banco"
-            value={formData.banco}
-            onChange={handleChange}
-            required
-            className="border p-3 rounded-lg text-center focus:ring-2 focus:ring-[#6d72f9] outline-none transition"
-          />
+        <form onSubmit={handleSubmit} className="p-6 md:p-8">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Sección: Información del Titular */}
+            <div className="space-y-4 md:col-span-2">
+               <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold border-b pb-1 mb-3 flex items-center gap-2">
+                 <Icon icon="mdi:account-details-outline" /> Información del Titular
+               </h3>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <InputGroup 
+                    label="Nombre del Titular" 
+                    icon="mdi:account" 
+                    name="nom_responsable" 
+                    value={formData.nom_responsable} 
+                    onChange={handleChange} 
+                    placeholder="Ej. Juan Pérez"
+                    required
+                 />
+                 <InputGroup 
+                    label="Apodo / Alias de la Cuenta" 
+                    icon="mdi:tag-text-outline" 
+                    name="apodo" 
+                    value={formData.apodo} 
+                    onChange={handleChange} 
+                    placeholder="Ej. Nómina Bancomer"
+                    required
+                 />
+               </div>
+            </div>
 
-          <input
-            type="text"
-            name="cuenta"
-            placeholder="Numero de Cuenta"
-            value={formData.cuenta}
-            onChange={handleChange}
-            required
-            className="border p-3 rounded-lg text-center focus:ring-2 focus:ring-[#6d72f9] outline-none transition"
-          />
+            {/* Sección: Datos Financieros */}
+            <div className="space-y-4 md:col-span-2 mt-2">
+               <h3 className="text-sm uppercase tracking-wider text-gray-500 font-semibold border-b pb-1 mb-3 flex items-center gap-2">
+                 <Icon icon="mdi:credit-card-settings-outline" /> Detalles de la Cuenta
+               </h3>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <InputGroup 
+                    label="Banco" 
+                    icon="mdi:bank" 
+                    name="banco" 
+                    value={formData.banco} 
+                    onChange={handleChange} 
+                    placeholder="Ej. BBVA"
+                    required
+                 />
+                 <InputGroup 
+                    label="Número de Cuenta" 
+                    icon="mdi:file-document-outline" 
+                    name="cuenta" 
+                    value={formData.cuenta} 
+                    onChange={handleChange} 
+                    placeholder="10 dígitos"
+                    type="number"
+                    required
+                 />
+                 <InputGroup 
+                    label="Clave Interbancaria" 
+                    icon="mdi:numeric" 
+                    name="clave_int" 
+                    value={formData.clave_int} 
+                    onChange={handleChange} 
+                    placeholder="18 dígitos"
+                    type="number"
+                    required
+                 />
+                 {/* NUEVO CAMPO: Num Tarjeta (Opcional) */}
+                 <InputGroup 
+                    label="No. Tarjeta (Opcional)" 
+                    icon="mdi:credit-card-outline" 
+                    name="num_tarjeta" 
+                    value={formData.num_tarjeta} 
+                    onChange={handleChange} 
+                    placeholder="16 dígitos"
+                    type="number"
+                 />
+               </div>
+            </div>
+          </div>
 
-          <input
-            type="text"
-            name="clave_int"
-            placeholder="Clave Interbancaria"
-            value={formData.clave_int}
-            onChange={handleChange}
-            required
-            className="border p-3 rounded-lg text-center focus:ring-2 focus:ring-[#6d72f9] outline-none transition"
-          />
-          <div className="flex justify-center mt-4">
+          {/* Mensaje de Error */}
+          {error && (
+            <div className="mt-6 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-2 rounded-r animate-in fade-in slide-in-from-top-2">
+              <Icon icon="mdi:alert-circle" />
+              <span className="text-sm font-medium">{error}</span>
+            </div>
+          )}
+
+          {/* Botones de Acción */}
+          <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-gray-200 outline-none"
+            >
+              Cancelar
+            </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-2 justify-center w-full p-3 bg-[#6432e4] text-white font-bold rounded-lg shadow-lg hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:-translate-y-0.5 transition-all duration-300 disabled:bg-gray-400"
-            >
-              <Icon
-                icon={
-                  isSaving ? "line-md:loading-loop" : "line-md:confirm-circle"
+              className={`
+                px-6 py-2.5 rounded-lg text-white font-medium shadow-lg shadow-blue-500/30
+                flex items-center gap-2 transition-all transform active:scale-95
+                ${isSaving 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:-translate-y-0.5'
                 }
-                width="24"
-              />
-              {isSaving ? "Guardando..." : "Guardar Cambios"}
+              `}
+            >
+              {isSaving ? (
+                 <><Icon icon="line-md:loading-loop" width="24"/> Guardando...</>
+              ) : (
+                 <><Icon icon="line-md:confirm-circle" width="24" /> Guardar Cuenta</>
+              )}
             </button>
           </div>
         </form>
@@ -157,5 +247,29 @@ const ModalBanco = ({ isOpen, onClose, bancoData, onSave }) => {
     </div>
   );
 };
+
+// Componente Reutilizable para Inputs (Mismo estilo que en Unidades)
+const InputGroup = ({ label, icon, name, value, onChange, placeholder, type = "text", required = false }) => (
+  <div className="group">
+    <label htmlFor={name} className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+        <Icon icon={icon} width="20" />
+      </div>
+      <input
+        type={type}
+        name={name}
+        id={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        className="block w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all duration-200 sm:text-sm shadow-sm"
+      />
+    </div>
+  </div>
+);
 
 export default ModalBanco;

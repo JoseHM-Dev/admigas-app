@@ -3,8 +3,7 @@
 @layer base {
   body {
     font-family: 'Poppins', sans-serif;
-    background: #eba226;
-    background: linear-gradient(90deg, rgba(240, 178, 0), rgba(250,204,21), rgba(254,240,138));
+    background-image: linear-gradient(to top, #c4c5c7 0%, #dcdddf 52%, #ebebeb 100%);
   }
 }
 

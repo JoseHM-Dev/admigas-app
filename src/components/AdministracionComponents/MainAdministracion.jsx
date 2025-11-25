@@ -113,7 +113,9 @@ export const MainAdministracion = () => {
   };
 
   const handleInhabilitarEdificio = async (id_edificio) => {
-    if (window.confirm("¿Está seguro de que desea inhabilitar este edificio?")) {
+    if (
+      window.confirm("¿Está seguro de que desea inhabilitar este edificio?")
+    ) {
       try {
         const { error } = await supabase
           .from("edificio")
@@ -397,7 +399,7 @@ export const MainAdministracion = () => {
               placeholder="Buscar por responsable, calle, colonia..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="p-2 border bg-[#ad9ade] text-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:cursor-pointer hover:bg-white hover:text-black/70 transition-all duration-300 min-w-[400px]"
+              className="p-2 border bg-[#ad9ade] text-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:cursor-pointer hover:bg-white hover:text-black/70 transition-all duration-300 min-w-[230px]"
             />
           </div>
           <div className="flex flex-col-reverse items-center gap-2 md:flex-row">
@@ -675,7 +677,7 @@ export const MainAdministracion = () => {
                   placeholder="Buscar por mes (e.g., 'noviembre')"
                   value={searchTermFacturas}
                   onChange={(e) => setSearchTermFacturas(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-[#6432e4] hover:text-white min-w-[400px]"
+                  className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-[#6432e4] hover:text-white min-w-[230px]"
                 />
                 <button
                   onClick={handleOpenPagoModal}

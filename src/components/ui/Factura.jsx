@@ -1,488 +1,333 @@
-import React, { useState, useEffect } from "react";
-import fondoFactura from "../../assets/Factura/fondo_de_factura.png";
-// Asegúrate de que la ruta a supabaseClient sea correcta
+import React, { useState, useEffect, forwardRef } from "react";
 import { supabase } from "../../supabaseClient";
 import { Icon } from "@iconify/react";
+// Si tienes el fondo, úsalo, si no, el diseño tiene fondo blanco limpio
+import fondoFactura from "../../assets/Factura/fondo_de_factura.png"; 
 
-const Factura = React.forwardRef(
-  (
-    {
-      facturaData,
-      departamento,
-      selectedTarifa,
-      selectedCuenta,
-      configuracionImagen,
-    },
-    ref
-  ) => {
+const Factura = forwardRef(({ facturaData, departamento, selectedTarifa, selectedCuenta, configuracionImagen }, ref) => {
+    
+    // --- LÓGICA DE DATOS (Intacta) ---
     const [infoLecturas, setInfoLecturas] = useState({
-      penultima: { fecha: null, imagen: null, lectura: null },
-      ultima: { fecha: null, imagen: null, lectura: null },
+        penultima: { fecha: null, imagen: null, lectura: null },
+        ultima: { fecha: null, imagen: null, lectura: null },
     });
-
     const [factorConversion, setFactorConversion] = useState(null);
     const [saldoAnterior, setSaldoAnterior] = useState(0);
     const [telefonoContacto, setTelefonoContacto] = useState(null);
     const [logoUrl, setLogoUrl] = useState(null);
 
     useEffect(() => {
-      const fetchDatos = async () => {
-        if (!departamento?.id_departamento) return;
+        const fetchDatos = async () => {
+            if (!departamento?.id_departamento) return;
+            try {
+                // Lecturas
+                const { data, error } = await supabase
+                    .from("lectura")
+                    .select("fecha_lectura, url, valor_lectura")
+                    .eq("id_departamento", departamento.id_departamento)
+                    .order("fecha_lectura", { ascending: false })
+                    .limit(2);
 
-        try {
-          const { data, error } = await supabase
-            .from("lectura")
-            .select("fecha_lectura, url, valor_lectura")
-            .eq("id_departamento", departamento.id_departamento)
-            .order("fecha_lectura", { ascending: false })
-            .limit(2);
-
-          if (error) throw error;
-
-          if (data && data.length >= 2) {
-            setInfoLecturas({
-              ultima: {
-                fecha: data[0].fecha_lectura,
-                imagen: data[0].url,
-                lectura: data[0].valor_lectura,
-              },
-              penultima: {
-                fecha: data[1].fecha_lectura,
-                imagen: data[1].url,
-                lectura: data[1].valor_lectura,
-              },
-            });
-          } else if (data && data.length === 1) {
-            setInfoLecturas({
-              ultima: {
-                fecha: data[0].fecha_lectura,
-                imagen: data[0].url,
-                lectura: data[0].valor_lectura,
-              },
-              penultima: { fecha: null, imagen: null, lectura: null },
-            });
-          }
-
-          const { data: dataUnidad, error: errorUnidad } = await supabase
-            .from("unidad")
-            .select("telefono_1")
-            .order("id", { ascending: false })
-            .limit(1)
-            .single();
-
-          if (dataUnidad) {
-            setTelefonoContacto(dataUnidad.telefono_1);
-          } else if (errorUnidad) {
-            console.error("Error al obtener teléfono:", errorUnidad);
-          }
-
-          if (selectedTarifa?.id_tarifa) {
-            const { data: dataTarifa, error: errorTarifa } = await supabase
-              .from("tarifa")
-              .select("factor")
-              .eq("id_tarifa", selectedTarifa.id_tarifa)
-              .single();
-
-            if (errorTarifa) {
-              console.error("Error cargando factor:", errorTarifa);
-            } else if (dataTarifa) {
-              setFactorConversion(dataTarifa.factor);
-            }
-          }
-
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
-
-          if (user && user.user_metadata && user.user_metadata.avatar_url) {
-            setLogoUrl(user.user_metadata.avatar_url);
-          }
-
-          const { data: dataDeuda, error: errorDeuda } = await supabase
-            .from("factura_departamento")
-            .select("saldo_por_pagar")
-            .eq("departamento_id", departamento.id_departamento)
-            .eq("estado_pago", false);
-
-          if (errorDeuda) {
-            console.error("Error calculando deuda:", errorDeuda);
-          } else if (dataDeuda) {
-            const totalDeuda = dataDeuda.reduce(
-              (acc, curr) => acc + (curr.saldo_por_pagar || 0),
-              0
-            );
-            setSaldoAnterior(totalDeuda);
-          }
-        } catch (err) {
-          console.error("Error general:", err);
-        }
-      };
-
-      fetchDatos();
+                if (!error && data) {
+                    if (data.length >= 2) {
+                        setInfoLecturas({
+                            ultima: { fecha: data[0].fecha_lectura, imagen: data[0].url, lectura: data[0].valor_lectura },
+                            penultima: { fecha: data[1].fecha_lectura, imagen: data[1].url, lectura: data[1].valor_lectura },
+                        });
+                    } else if (data.length === 1) {
+                        setInfoLecturas({
+                            ultima: { fecha: data[0].fecha_lectura, imagen: data[0].url, lectura: data[0].valor_lectura },
+                            penultima: { fecha: null, imagen: null, lectura: null },
+                        });
+                    }
+                }
+                // Telefono
+                const { data: dataUnidad } = await supabase.from("unidad").select("telefono_1").limit(1).single();
+                if (dataUnidad) setTelefonoContacto(dataUnidad.telefono_1);
+                // Factor
+                if (selectedTarifa?.id_tarifa) {
+                    const { data: dataTarifa } = await supabase.from("tarifa").select("factor").eq("id_tarifa", selectedTarifa.id_tarifa).single();
+                    if (dataTarifa) setFactorConversion(dataTarifa.factor);
+                }
+                // Logo
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.user_metadata?.avatar_url) setLogoUrl(user.user_metadata.avatar_url);
+                // Deuda
+                const { data: dataDeuda } = await supabase
+                    .from("factura_departamento")
+                    .select("saldo_por_pagar")
+                    .eq("departamento_id", departamento.id_departamento)
+                    .eq("estado_pago", false);
+                if (dataDeuda) {
+                    setSaldoAnterior(dataDeuda.reduce((acc, curr) => acc + (curr.saldo_por_pagar || 0), 0));
+                }
+            } catch (err) { console.error(err); }
+        };
+        fetchDatos();
     }, [departamento, selectedTarifa]);
 
-    if (!facturaData || !departamento || !selectedTarifa) {
-      return <p>Faltan datos para generar la factura.</p>;
-    }
+    if (!facturaData || !departamento || !selectedTarifa) return <p>Cargando...</p>;
 
-    const adeudoGas = saldoAnterior;
+    const totalFactura = (facturaData.monto || 0) + (facturaData.administracion || 0) + (facturaData.servicios || 0) + saldoAnterior;
 
-    const totalFactura =
-      (facturaData.monto || 0) +
-      (facturaData.administracion || 0) +
-      (facturaData.servicios || 0) +
-      (adeudoGas || 0);
+    // --- ESTILOS NATIVOS (FLEXBOX ROBUSTO) ---
+    const styles = {
+        container: {
+            width: "800px",
+            minHeight: "1100px", // Tamaño A4 aprox
+            backgroundColor: "#fff",
+            fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            color: "#333",
+            position: "relative",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column", // FLUJO VERTICAL: Lo más importante
+        },
+        backgroundImage: {
+            position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
+            objectFit: "cover", zIndex: 0, opacity: 0.4
+        },
+        mainContent: {
+            zIndex: 10,
+            flex: 1, // Ocupa el espacio disponible empujando el footer
+            padding: "40px 50px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "25px", // Espacio automático entre secciones
+        },
+        
+        // 1. HEADER
+        header: {
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "3px solid #644FD0",
+            paddingBottom: "15px"
+        },
+        headerLeft: { display: "flex", flexDirection: "column" },
+        title: { fontSize: "42px", fontWeight: "900", color: "#644FD0", margin: 0, letterSpacing: "2px", lineHeight: 1 },
+        subTitle: { fontSize: "14px", color: "#666", marginTop: "5px", fontWeight: "600" },
+        logoBox: { width: "100px", height: "100px", borderRadius: "50%", overflow: "hidden", border: "3px solid #EE5F63" },
+        
+        // 2. INFO BAR
+        infoBar: {
+            display: "flex",
+            justifyContent: "space-between",
+            backgroundColor: "#f9f9f9",
+            padding: "15px",
+            borderRadius: "8px",
+            borderLeft: "5px solid #EE5F63"
+        },
+        infoItem: { fontSize: "14px", color: "#555" },
+        infoValue: { fontWeight: "bold", color: "#333", marginLeft: "5px" },
+
+        // 3. CLIENTE SECTION
+        sectionTitle: { 
+            fontSize: "18px", fontWeight: "800", color: "#0094A2", 
+            borderBottom: "1px solid #ccc", paddingBottom: "5px", marginBottom: "10px",
+            textTransform: "uppercase" 
+        },
+        clientRow: { display: "flex", justifyContent: "space-between", alignItems: "stretch", gap: "20px" },
+        clientCard: { 
+            flex: 2, 
+            border: "1px solid #ddd", borderRadius: "10px", padding: "15px",
+            backgroundColor: "rgba(255,255,255,0.9)", boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
+        },
+        deptoCard: {
+            flex: 1,
+            backgroundColor: "#644FD0", color: "white",
+            borderRadius: "10px", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 8px rgba(100, 79, 208, 0.3)"
+        },
+        
+        // 4. LECTURAS
+        readingsContainer: { display: "flex", justifyContent: "space-between", gap: "20px" },
+        readingBox: {
+            flex: 1, border: "1px solid #eee", borderRadius: "8px", padding: "10px",
+            textAlign: "center", backgroundColor: "#fff"
+        },
+        readingImg: { 
+            width: "100%", height: "140px", objectFit: "cover", borderRadius: "6px", 
+            marginTop: "8px", border: "1px solid #ddd" 
+        },
+
+        // 5. DATOS Y TOTALES (GRID SIMULADO CON FLEX)
+        detailsContainer: { display: "flex", gap: "30px" },
+        detailCol: { flex: 1 },
+        
+        // Estilo de Tablas Nativas
+        table: { width: "100%", borderCollapse: "collapse", fontSize: "13px" },
+        th: { textAlign: "left", padding: "8px", borderBottom: "2px solid #0094A2", color: "#0094A2" },
+        td: { padding: "8px", borderBottom: "1px solid #eee", color: "#444" },
+        tdRight: { textAlign: "right", padding: "8px", borderBottom: "1px solid #eee", color: "#444", fontWeight: "bold" },
+
+        // Gran Total
+        totalStrip: {
+            backgroundColor: "#0094A2",
+            color: "white",
+            padding: "15px 30px",
+            borderRadius: "50px", // Pill shape
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: "20px",
+            boxShadow: "0 4px 10px rgba(0, 148, 162, 0.3)"
+        },
+
+        // 6. FOOTER
+        footer: {
+            backgroundColor: "#333",
+            color: "#fff",
+            padding: "30px 50px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontSize: "12px",
+            zIndex: 10,
+            marginTop: "auto" // Empuja el footer al final
+        }
+    };
 
     return (
-      <div
-        ref={ref}
-        style={{
-          width: "800px",
-          height: "1100px",
-          position: "relative",
-          fontFamily: "Poppins, sans-serif",
-          color: "black",
-          backgroundColor: "white",
-          overflow: "hidden",
-          // CORRECCIÓN 1: letterSpacing evita que el texto se expanda de más en el PDF
-          letterSpacing: "2px", 
-        }}
-      >
-        <img
-          src={fondoFactura}
-          alt="Fondo"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            zIndex: 0,
-            objectFit: "cover",
-          }}
-        />
+        <div ref={ref} style={styles.container}>
+            {/* Fondo decorativo */}
+            <img src={fondoFactura} alt="" style={styles.backgroundImage} />
 
-        <div style={{ position: "relative", zIndex: 10 }}>
-          
-          <div
-            style={{ position: "absolute", top: "80px", left: "60px" }}
-            className="text-5xl text-[#644FD0] font-medium"
-          >
-            Factura
-          </div>
-
-          {logoUrl && configuracionImagen?.mostrar && (
-            <div
-              style={{
-                position: "absolute",
-                top: "60px",
-                left: "500px",
-                right: "60px",
-                width: "150px",
-                height: "150px",
-                overflow: "hidden",
-                zIndex: 10,
-              }}
-            >
-              <img
-                src={logoUrl}
-                alt="Logo Empresa"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                crossOrigin="anonymous"
-              />
-            </div>
-          )}
-
-          {/* CORRECCIÓN 2: whiteSpace: "nowrap" en Contrato */}
-          <div
-            style={{ position: "absolute", top: "150px", left: "62px", whiteSpace: "nowrap" }}
-            className="text-[#644fd0] flex flex-row gap-4 items-center justify-center font-medium"
-          >
-            <div>
-              <p>No. Contrato:</p>
-            </div>
-
-            <div className="text-[#EE5F63] flex flex-row justify-center">
-              G.M. GAS - 1122 -{departamento.edificio.id_contrato}
-            </div>
-          </div>
-
-          {/* CORRECCIÓN 3: whiteSpace: "nowrap" en Fecha */}
-          <div
-            style={{ position: "absolute", top: "175px", left: "62px", whiteSpace: "nowrap" }}
-            className="text-[#644fd0] flex flex-row gap-1 items-center justify-center font-medium"
-          >
-            Fecha de Emisión:
-            <p className="text-[#EE5F63] flex flex-row justify-center ml-2">
-              {new Date(facturaData.fecha_factura).toLocaleDateString()}
-            </p>
-          </div>
-
-          {/* Titulos Cliente/Depto */}
-          <div
-            style={{ position: "absolute", top: "215px", left: "188px", whiteSpace: "nowrap" }}
-            className="flex flex-row  text-[#644fd0] items-center justify-center font-medium text-xl"
-          >
-            <div>Cliente</div>
-            <div style={{ position: "relative", top: "0px", left: "215px" }}>Departamento</div>
-          </div>
-
-          <div
-            style={{ position: "absolute", top: "260px", left: "60px" }}
-            className=" w-[680px] flex flex-row justify-between"
-          >
-            <div style={{ position: "relative", top: "0px", left: "0px" }} className="w-[330px] border-2 border-[#ee5f63] rounded-xl text-md ">
-              <div 
-              style={{ position: "relative", top: "-10px", left: "0px" }}
-              className="flex flex-col text-center mb-2">
-                <p className="text-[#0094A2] font-bold">Nombre:</p>
-                {/* CORRECCIÓN 4: Evitamos que el nombre rompa el layout */}
-                <p className="text-[#EE5F63] font-medium" style={{ whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                    {departamento.titular_depto}
-                </p>
-              </div>
-              <div style={{ position: "relative", top: "-15px", left: "0px" }} className="flex flex-col text-center">
-                <p className="text-[#0094A2] font-bold">Dirección: </p>
-                {/* CORRECCIÓN 5: lineHeight controlado para la dirección */}
-                <p className="text-[#644fd0]" style={{ lineHeight: "1.2", fontSize: "14px" }}>
-                  {departamento.edificio.calle} #{departamento.edificio.numero},{" "}
-                  {departamento.edificio.colonia} {departamento.edificio.cp},{" "}
-                  {departamento.edificio.delegacion}
-                </p>
-              </div>
-            </div>
-            
-            <div  className="w-[330px] border-2 border-[#ee5f63] rounded-xl text-center flex items-center justify-center font-extrabold text-5xl text-[#0094A2]">
-              <p style={{ position: "relative", top: "-35px", left: "0px" }}>{departamento.no_depto}</p>
-            </div>
-          </div>
-
-          <div
-            style={{ position: "absolute", top: "380px", left: "358px" }}
-            className="flex flex-row gap-60 text-[#644fd0] items-center justify-center font-medium text-xl"
-          >
-            <div>Medidor</div>
-          </div>
-
-          <div
-            style={{ position: "absolute", top: "420px", left: "60px" }}
-            className="w-[680px] flex flex-row justify-around text-lg font-medium"
-          >
-            {/* LECTURA ANTERIOR */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-[#0094A2]">Lectura Anterior</span>
-              {/* CORRECCIÓN 6: nowarp en fechas */}
-              <span style={{ position: "relative", top: "-10px", left: "0px", whiteSpace: "nowrap"}} className="text-[#EE5F63]">
-                {infoLecturas.penultima.fecha
-                  ? new Date(infoLecturas.penultima.fecha).toLocaleDateString(
-                      "es-MX",
-                      { timeZone: "UTC" }
-                    )
-                  : "Cargando..."}
-              </span>
-              {infoLecturas.penultima.imagen && (
-                <img
-                  src={infoLecturas.penultima.imagen}
-                  alt="Evidencia Anterior"
-                  className="w-[330px] h-24 object-cover border-2 border-[#EE5F63] p-2 rounded-lg shadow-sm"
-                  crossOrigin="anonymous"
-                />
-              )}
-            </div>
-
-            {/* LECTURA ACTUAL */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-[#0094A2]">Lectura Actual</span>
-              <span style={{ position: "relative", top: "-10px", left: "0px", whiteSpace: "nowrap"}} className="text-[#EE5F63]">
-                {infoLecturas.ultima.fecha
-                  ? new Date(infoLecturas.ultima.fecha).toLocaleDateString(
-                      "es-MX",
-                      { timeZone: "UTC" }
-                    )
-                  : "Cargando..."}
-              </span>
-              {infoLecturas.ultima.imagen && (
-                <img
-                  src={infoLecturas.ultima.imagen}
-                  alt="Evidencia Actual"
-                  className="w-[330px] h-24 object-cover border-2 border-[#EE5F63] p-2 rounded-lg shadow-sm"
-                  crossOrigin="anonymous"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* --- TABLAS DE DATOS --- */}
-          <div
-            style={{ position: "absolute", top: "600px", left: "60px" }}
-            className="flex flex-row w-[680px] justify-between "
-          >
-            {/* COLUMNA IZQUIERDA: DATOS CONSUMO */}
-            <div  className="w-[335px] flex flex-col m-2 border-2 border-[#ee5f63] rounded-xl p-3 h-60">
-              <span style={{ position: "relative", top: "-25px", left: "0px" }} className="text-center font-medium text-[#ee5f63] m-2 mb-4">
-                Datos Consumo
-              </span>
-              <div className="flex flex-col gap-1"> {/* Usamos gap-1 en lugar de depender solo del flow */}
+            <div style={styles.mainContent}>
                 
-                {/* CORRECCIÓN 7: Aplicamos whiteSpace: nowrap a cada fila para evitar cruces */}
-                <div style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }} className="flex flex-row justify-between" >
-                  <span className="text-[#0094A2]">Lec. Antes:</span>
-                  <span className="text-[#644fd0]">
-                    {infoLecturas.penultima.lectura} m3
-                  </span>
+                {/* 1. HEADER */}
+                <header style={styles.header}>
+                    <div style={styles.headerLeft}>
+                        <h1 style={styles.title}>FACTURA</h1>
+                        <div style={styles.subTitle}>Admi Gas LP - Servicio Profesional</div>
+                    </div>
+                    {logoUrl && configuracionImagen?.mostrar && (
+                        <div style={styles.logoBox}>
+                            <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
+                        </div>
+                    )}
+                </header>
+
+                {/* 2. INFO BARRA */}
+                <div style={styles.infoBar}>
+                    <span style={styles.infoItem}>Contrato:<span style={{...styles.infoValue, color: "#EE5F63"}}>#{departamento.edificio.id_contrato}</span></span>
+                    <span style={styles.infoItem}>Fecha:<span style={styles.infoValue}>{new Date(facturaData.fecha_factura).toLocaleDateString()}</span></span>
+                    <span style={styles.infoItem}>Folio:<span style={styles.infoValue}>{facturaData.id_factura ? facturaData.id_factura.toString().slice(0,8).toUpperCase() : "PRE"}</span></span>
                 </div>
 
-                <div  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }} className="flex flex-row justify-between" >
-                  <span  className="text-[#0094A2]">Lec. Despues:</span>
-                  <span className="text-[#644fd0]">
-                    {infoLecturas.ultima.lectura} m3
-                  </span>
+                {/* 3. CLIENTE Y DEPTO */}
+                <div>
+                    <div style={styles.sectionTitle}>Datos del Cliente</div>
+                    <div style={styles.clientRow}>
+                        <div style={styles.clientCard}>
+                            <div style={{fontSize:"16px", fontWeight:"bold", color:"#333", marginBottom:"5px"}}>{departamento.titular_depto}</div>
+                            <div style={{fontSize:"13px", color:"#666", lineHeight:"1.4"}}>
+                                {departamento.edificio.calle} #{departamento.edificio.numero}<br/>
+                                {departamento.edificio.colonia}, {departamento.edificio.delegacion}<br/>
+                                C.P. {departamento.edificio.cp}
+                            </div>
+                        </div>
+                        <div style={styles.deptoCard}>
+                            <span style={{fontSize:"12px", textTransform:"uppercase", opacity: 0.8}}>Departamento</span>
+                            <span style={{fontSize:"42px", fontWeight:"bold"}}>{departamento.no_depto}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Consumo M3:</span>
-                  <span className="text-[#644fd0]">
-                    {facturaData.consumo_lectura.toFixed(2)} m3
-                  </span>
+                {/* 4. MEDIDOR */}
+                <div>
+                    <div style={styles.sectionTitle}>Evidencia de Medidor</div>
+                    <div style={styles.readingsContainer}>
+                        <div style={styles.readingBox}>
+                            <div style={{fontWeight:"bold", color: "#644FD0"}}>Lectura Anterior</div>
+                            <div style={{fontSize:"12px", color:"#888", marginBottom:"5px"}}>
+                                {infoLecturas.penultima.fecha ? new Date(infoLecturas.penultima.fecha).toLocaleDateString() : "-"}
+                            </div>
+                            {infoLecturas.penultima.imagen ? (
+                                <img src={infoLecturas.penultima.imagen} alt="Ant" style={styles.readingImg} crossOrigin="anonymous" />
+                            ) : <div style={{...styles.readingImg, display:'flex', alignItems:'center', justifyContent:'center', background:'#f0f0f0', color:'#aaa'}}>Sin Foto</div>}
+                        </div>
+                        <div style={styles.readingBox}>
+                            <div style={{fontWeight:"bold", color: "#0094A2"}}>Lectura Actual</div>
+                            <div style={{fontSize:"12px", color:"#888", marginBottom:"5px"}}>
+                                {infoLecturas.ultima.fecha ? new Date(infoLecturas.ultima.fecha).toLocaleDateString() : "-"}
+                            </div>
+                            {infoLecturas.ultima.imagen ? (
+                                <img src={infoLecturas.ultima.imagen} alt="Act" style={styles.readingImg} crossOrigin="anonymous" />
+                            ) : <div style={{...styles.readingImg, display:'flex', alignItems:'center', justifyContent:'center', background:'#f0f0f0', color:'#aaa'}}>Sin Foto</div>}
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Factor:</span>
-                  <span className="text-[#644fd0]">
-                    {factorConversion !== null
-                      ? Number(factorConversion).toFixed(2)
-                      : "Cargando..."}
-                  </span>
+                {/* 5. DETALLES FINANCIEROS */}
+                <div style={styles.detailsContainer}>
+                    {/* Tabla Consumo */}
+                    <div style={styles.detailCol}>
+                        <div style={styles.sectionTitle}>Consumo</div>
+                        <table style={styles.table}>
+                            <tbody>
+                                <tr><td style={styles.td}>Lectura Anterior</td><td style={styles.tdRight}>{infoLecturas.penultima.lectura || 0}</td></tr>
+                                <tr><td style={styles.td}>Lectura Actual</td><td style={styles.tdRight}>{infoLecturas.ultima.lectura || 0}</td></tr>
+                                <tr><td style={styles.td}><strong>Consumo M³</strong></td><td style={styles.tdRight}><strong>{facturaData.consumo_lectura.toFixed(2)}</strong></td></tr>
+                                <tr><td style={styles.td}>Factor Conversión</td><td style={styles.tdRight}>{factorConversion || 0}</td></tr>
+                                <tr><td style={styles.td}>Precio Unitario</td><td style={styles.tdRight}>${selectedTarifa.precio_m3}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Tabla Desglose */}
+                    <div style={styles.detailCol}>
+                        <div style={styles.sectionTitle}>Resumen</div>
+                        <table style={styles.table}>
+                            <tbody>
+                                <tr><td style={styles.td}>Importe Gas</td><td style={styles.tdRight}>${facturaData.monto.toFixed(2)}</td></tr>
+                                {saldoAnterior > 0 && (
+                                    <tr><td style={{...styles.td, color:"#EE5F63"}}>Adeudo Anterior</td><td style={{...styles.tdRight, color:"#EE5F63"}}>${saldoAnterior.toFixed(2)}</td></tr>
+                                )}
+                                {facturaData.administracion > 0 && (
+                                    <tr><td style={styles.td}>Administración</td><td style={styles.tdRight}>${facturaData.administracion}</td></tr>
+                                )}
+                                {facturaData.servicios > 0 && (
+                                    <tr><td style={styles.td}>Otros Servicios</td><td style={styles.tdRight}>${facturaData.servicios}</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Precio M3:</span>
-                  <span className="text-[#644fd0]">
-                    ${selectedTarifa.precio_m3.toFixed(2)}
-                  </span>
+                {/* GRAN TOTAL */}
+                <div style={styles.totalStrip}>
+                    <span style={{fontSize: "18px", textTransform: "uppercase", letterSpacing: "1px"}}>Total a Pagar</span>
+                    <span style={{fontSize: "32px", fontWeight: "900"}}>${totalFactura.toFixed(2)}</span>
                 </div>
-              </div>
+
             </div>
 
-            {/* COLUMNA DERECHA: RESUMEN PAGO */}
-            <div className="w-[335px] flex flex-col m-2 border-2 border-[#ee5f63] rounded-xl p-3 h-60">
-              <span style={{ position: "relative", top: "-25px", left: "0px" }} className="text-center font-medium text-[#ee5f63] m-2 mb-4">
-                Resumen de Pago
-              </span>
-              <div className="flex flex-col gap-1">
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Importe Consumo:</span>
-                  <span className="text-[#644fd0]">
-                    ${facturaData.monto.toFixed(2)}
-                  </span>
+            {/* 6. FOOTER */}
+            <footer style={styles.footer}>
+                <div>
+                    <div style={{fontWeight:"bold", marginBottom:"5px", color:"#EE5F63", textTransform:"uppercase"}}>Datos Bancarios</div>
+                    {selectedCuenta ? (
+                        <div style={{lineHeight:"1.5", color: "#ccc"}}>
+                            Banco: <span style={{color:"#fff", fontWeight:"bold"}}>{selectedCuenta.nom_banco}</span><br/>
+                            Titular: {selectedCuenta.nom_responsable}<br/>
+                            Cuenta: {selectedCuenta.cuenta}<br/>
+                            CLABE: {selectedCuenta.clave_int}
+                        </div>
+                    ) : "Sin cuenta asignada"}
                 </div>
-
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Adeudo Gas:</span>
-                  <span className="text-[#644fd0]">
-                    ${saldoAnterior.toFixed(2)}
-                  </span>
+                <div style={{textAlign:"right"}}>
+                    <div style={{fontWeight:"bold", marginBottom:"5px", color:"#0094A2", textTransform:"uppercase"}}>Atención a Clientes</div>
+                    <div style={{display:"flex", alignItems:"center", gap:"10px", justifyContent:"flex-end"}}>
+                        <Icon icon="logos:whatsapp-icon" width="24" />
+                        <span style={{fontSize:"16px", fontWeight:"bold"}}>{telefonoContacto || "55-0000-0000"}</span>
+                    </div>
+                    <div style={{marginTop:"5px", color:"#888"}}>Dudas o aclaraciones</div>
                 </div>
-
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Administración:</span>
-                  <span className="text-[#644fd0]">
-                    ${(facturaData.administracion || 0).toFixed(2)}
-                  </span>
-                </div>
-
-                <div className="flex flex-row justify-between"  style={{ position: "relative", top: "-25px", left: "0px", whiteSpace: "nowrap" }}>
-                  <span className="text-[#0094A2]">Otros Servicios:</span>
-                  <span className="text-[#644fd0]">
-                    ${(facturaData.servicios || 0).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* TOTALES */}
-          <div
-            style={{ position: "absolute", top: "800px", left: "70px" }}
-            className="w-[320px] bg-[#facb56] h-[30px] items-center justify-center flex font-bold"
-          >
-            <div className="flex flex-row justify-between w-[300px]" style={{ position: "relative", top: "-15px", left: "0px", whiteSpace: "nowrap" }}>
-              <span className="text-[#0094A2]">Importe:</span>
-              <span className="text-[#ee5f63]">
-                ${facturaData.monto.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          <div
-            style={{ position: "absolute", top: "800px", left: "410px" }}
-            className="w-[300px] bg-[#facb56] h-[30px] items-center justify-center flex font-bold"
-          >
-            <div className="flex flex-row w-[300px] m-3" style={{ position: "relative", top: "-15px", left: "0px", whiteSpace: "nowrap" }}>
-              <span className="text-[#0094A2]">Importe a pagar:</span>
-            </div>
-          </div>
-
-          <div
-            style={{ position: "absolute", top: "790px", left: "620px" }}
-            className=" bg-[#0094A2] text-end h-[50px] items-center justify-center flex font-extrabold text-2xl rounded-2xl px-4"
-          >
-            <span className="text-[#ee5f63]" style={{ position: "relative", top: "-20px", left: "0px", whiteSpace: "nowrap" }}>
-                ${totalFactura.toFixed(2)}
-            </span>
-          </div>
-
-          {/* FOOTER */}
-          <div
-            style={{ position: "absolute", top: "900px", left: "0px" }}
-            className="bg-[#ee5f63] opacity-80 w-full flex justify-between items-center px-10 py-4 h-[155px]"
-          >
-            <div className="text-[#ffff] flex flex-col justify-center">
-              <p className="font-bold text-lg  pb-1" style={{ position: "relative", top: "-15px", left: "0px", whiteSpace: "nowrap" }}>
-                Datos Bancarios para Transferencia
-              </p>
-
-              {selectedCuenta ? (
-                <div className="text-sm leading-relaxed font-medium" style={{ position: "relative", top: "-15px", left: "0px", whiteSpace: "nowrap" }}>
-                  <p style={{ whiteSpace: "nowrap" }}>
-                    Banco:{" "}
-                    <span className="font-bold text-[#facb56]">
-                      {selectedCuenta.nom_banco}
-                    </span>
-                  </p>
-                  <p style={{ whiteSpace: "nowrap" }}>Titular: {selectedCuenta.nom_responsable}</p>
-                  <div className="flex gap-4 mt-1">
-                    <p style={{ whiteSpace: "nowrap" }}>Cuenta: {selectedCuenta.cuenta}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <p>CLABE:</p>
-                    <p className="text-xl" style={{ whiteSpace: "nowrap" }}>{selectedCuenta.clave_int}</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm italic opacity-80">
-                  Sin datos bancarios seleccionados
-                </p>
-              )}
-            </div>
-
-            <div className="text-[#ffff] flex flex-col items-end justify-center text-right" style={{ position: "relative", top: "-15px", left: "0px", whiteSpace: "nowrap" }}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-bold text-lg">Atención a Clientes</span>
-              </div>
-              <p className="text-sm">Dudas o aclaraciones:</p>
-              <div className="flex justify-center items-center " style={{ position: "relative", top: "15px", left: "0px",  gap: "10px" }}>
-                <Icon icon="logos:whatsapp-icon" width="40" />
-                <p className="font-bold text-lg tracking-wider text-[#ffff]" style={{ whiteSpace: "nowrap", position: "relative", top: "-15px", left: "0px"}}>
-                  {telefonoContacto || "Cargando..."}
-                </p>
-              </div>
-            </div>
-          </div>
+            </footer>
         </div>
-      </div>
     );
-  }
-);
+});
 
 export default Factura;
