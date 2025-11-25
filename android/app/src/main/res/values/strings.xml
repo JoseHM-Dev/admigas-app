@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AdmiGasLp</string>
+    <string name="title_activity_main">AdmiGasLp</string>
+    <string name="package_name">com.admigaslp.app</string>
+    <string name="custom_url_scheme">com.admigaslp.app</string>
+</resources>
