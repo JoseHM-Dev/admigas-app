@@ -28,6 +28,9 @@ export default function ModalNuevaVenta({
   const [selectedClient, setSelectedClient] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Estado para el ID del turno actual
+  const [idPorcentajeActual, setIdPorcentajeActual] = useState(null); // <--- NUEVO ESTADO
+
   const [fecha, setFecha] = useState(getLocalDateString());
   const [consumoLitros, setConsumoLitros] = useState("");
   const [ret, setRet] = useState("");
@@ -50,6 +53,32 @@ export default function ModalNuevaVenta({
   const ticketRef = useRef(null);
 
   // --- EFECTOS ---
+
+  // 1. Efecto para cargar el ID del turno activo al abrir el modal
+  useEffect(() => {
+    const fetchCurrentTurno = async () => {
+      try {
+        // Buscamos el último registro creado en porcentaje_diario
+        const { data, error } = await supabase
+          .from("porcentaje_diario")
+          .select("id")
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data) {
+          setIdPorcentajeActual(data.id);
+        }
+      } catch (error) {
+        console.error("Error obteniendo turno actual:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchCurrentTurno();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (venta) {
       setSearchTerm(`${venta.calle} #${venta.numero}, ${venta.colonia}`);
@@ -69,6 +98,8 @@ export default function ModalNuevaVenta({
       setMontoPendiente(venta.monto_pendiente || "");
       setFechaProximaCarga(venta.fecha_proxima_carga || "");
       setComentarioProximaCarga("");
+      // Si estamos editando, mantenemos el ID original (no lo sobrescribimos con el actual si fuera diferente)
+      if (venta.id_porcentaje) setIdPorcentajeActual(venta.id_porcentaje);
     } else {
       resetForm();
     }
@@ -76,20 +107,19 @@ export default function ModalNuevaVenta({
 
   useEffect(() => {
     if (isOpen) {
-      // 1. Cargar Tarifa Global
+      // Cargar Tarifa Global
       if (tarifa) {
         setPrecioVigente(tarifa.precio_litro);
       } else {
         setPrecioVigente(0);
       }
 
-      // 2. Cargar Unidad Global
+      // Cargar Unidad Global
       if (unidad) {
         setDatosUnidad(unidad);
       }
 
-      // 3. Cargar Bancos Globales
-      // Truco: Convertimos el objeto único en una lista [] para que el ticket no falle
+      // Cargar Bancos Globales
       if (bancoContexto) {
         setDatosBancarios([bancoContexto]);
       } else {
@@ -123,7 +153,7 @@ export default function ModalNuevaVenta({
     try {
       const { data, error } = await supabase
         .from("casa_habitacion")
-        .select("id_casa,nombre_cliente, calle, numero, colonia")
+        .select("id_casa,nombre_cliente, calle, numero, colonia, telefono")
         .or(
           `nombre_cliente.ilike."%${term}%",calle.ilike."%${term}%",numero.ilike."%${term}%"`
         )
@@ -168,6 +198,7 @@ export default function ModalNuevaVenta({
     setNuevoContrato(null);
     setIsModalNuevoClienteOpen(false);
     setFacturaUrl(null);
+    // No reseteamos idPorcentajeActual aquí porque queremos que persista mientras el modal está abierto o se re-abra
   };
 
   const handleClose = () => {
@@ -182,7 +213,16 @@ export default function ModalNuevaVenta({
       return null;
     }
 
+    // Validación de seguridad: debe haber un turno detectado
+    if (!idPorcentajeActual) {
+      alert(
+        "Error: No se detectó un turno activo. Inicia un 'Nuevo Día' primero."
+      );
+      return null;
+    }
+
     const esPagado = !(tipoPago === "credito" || tipoPago === "transferencia");
+
     const ventaData = {
       id_casa: selectedCasaId,
       fecha_carga: fecha,
@@ -193,11 +233,13 @@ export default function ModalNuevaVenta({
       tipo_pago: tipoPago,
       monto_pendiente: parseFloat(montoPendiente),
       fecha_proxima_carga: fechaProximaCarga || null,
+      id_porcentaje: idPorcentajeActual, // <--- GUARDAMOS LA FK
     };
 
     let resultId = null;
     try {
       if (venta) {
+        // Al editar, NO cambiamos el id_porcentaje original a menos que sea necesario
         const { data, error } = await supabase
           .from("carga_casa")
           .update(ventaData)
@@ -215,6 +257,8 @@ export default function ModalNuevaVenta({
         if (error) throw error;
         resultId = data.id_carga;
       }
+
+      // Agenda (Proxima Carga)
       if (fechaProximaCarga) {
         await supabase.from("agenda").upsert(
           [
@@ -233,6 +277,10 @@ export default function ModalNuevaVenta({
       throw error;
     }
   };
+
+  // ... (El resto del código: handleSaveButton, handlePrintFactura, Render, TicketStyles se mantienen igual)
+  // SOLO ASEGÚRATE DE COPIAR TODO EL RESTO DEL ARCHIVO ORIGINAL AQUÍ ABAJO PARA QUE NO SE CORTE
+  // Para ahorrar espacio en la respuesta, asumo que mantienes el resto del renderizado UI intacto.
 
   const handleSaveButton = async (e) => {
     e.preventDefault();
@@ -330,11 +378,8 @@ export default function ModalNuevaVenta({
 
   return (
     <>
-      {/* WRAPPER VISUAL PRINCIPAL */}
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300">
-        {/* CONTAINER MODAL */}
         <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
-          {/* HEADER */}
           <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
@@ -355,10 +400,9 @@ export default function ModalNuevaVenta({
             </button>
           </div>
 
-          {/* BODY (Scrollable) */}
           <div className="p-6 overflow-y-auto space-y-6">
             <form onSubmit={handleSaveButton}>
-              {/* 1. SECCIÓN: BUSCADOR DE CLIENTE (Sticky top feeling) */}
+              {/* BUSCADOR DE CLIENTE */}
               <div className="relative group z-30">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
                   Cliente
@@ -395,7 +439,6 @@ export default function ModalNuevaVenta({
                   )}
                 </div>
 
-                {/* Dropdown de Resultados */}
                 {searchResults.length > 0 && (
                   <ul className="absolute left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-56 overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2">
                     {searchResults.map((client) => (
@@ -416,7 +459,6 @@ export default function ModalNuevaVenta({
                   </ul>
                 )}
 
-                {/* Link Crear Nuevo */}
                 {searchResults.length === 0 &&
                   searchTerm.length > 2 &&
                   !isSearching &&
@@ -434,9 +476,8 @@ export default function ModalNuevaVenta({
                   )}
               </div>
 
-              {/* 2. DATOS DE LA VENTA */}
+              {/* DATOS VENTA */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-                {/* Fecha */}
                 <InputGroup
                   label="Fecha"
                   icon="mdi:calendar"
@@ -445,8 +486,6 @@ export default function ModalNuevaVenta({
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
                 />
-
-                {/* Precio Vigente (Read Only) */}
                 <div className="group">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
                     Precio x Litro
@@ -465,8 +504,6 @@ export default function ModalNuevaVenta({
                     />
                   </div>
                 </div>
-
-                {/* Consumo */}
                 <InputGroup
                   label="Consumo (Litros)"
                   icon="mdi:gas-station"
@@ -476,8 +513,6 @@ export default function ModalNuevaVenta({
                   value={consumoLitros}
                   onChange={(e) => setConsumoLitros(e.target.value)}
                 />
-
-                {/* RET */}
                 <InputGroup
                   label="RET (Opcional)"
                   icon="mdi:percent"
@@ -489,7 +524,6 @@ export default function ModalNuevaVenta({
                 />
               </div>
 
-              {/* 3. TARJETA DE TOTAL */}
               <div className="bg-linear-to-br from-emerald-50 to-teal-100 border border-emerald-200 rounded-xl p-5 my-6 flex justify-between items-center shadow-sm">
                 <div>
                   <h4 className="text-emerald-800 text-sm font-bold uppercase tracking-wider">
@@ -507,9 +541,7 @@ export default function ModalNuevaVenta({
                 </div>
               </div>
 
-              {/* 4. DATOS DE PAGO */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Tipo de Pago */}
                 <div className="group">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
                     Método de Pago
@@ -530,8 +562,6 @@ export default function ModalNuevaVenta({
                     </select>
                   </div>
                 </div>
-
-                {/* Monto Pendiente */}
                 <InputGroup
                   label="Monto Pendiente"
                   icon="mdi:cash-clock"
@@ -550,7 +580,6 @@ export default function ModalNuevaVenta({
                 />
               </div>
 
-              {/* 5. AGENDAMIENTO */}
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <h4 className="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2">
                   <Icon icon="mdi:calendar-clock" /> Próxima Carga
@@ -563,7 +592,6 @@ export default function ModalNuevaVenta({
                     value={fechaProximaCarga}
                     onChange={(e) => setFechaProximaCarga(e.target.value)}
                   />
-
                   {fechaProximaCarga && (
                     <InputGroup
                       label="Comentario / Nota"
@@ -578,7 +606,6 @@ export default function ModalNuevaVenta({
                 </div>
               </div>
 
-              {/* FOOTER ACTIONS */}
               <div className="mt-8 flex justify-end gap-3">
                 <button
                   type="button"
@@ -589,7 +616,6 @@ export default function ModalNuevaVenta({
                   <Icon icon="mdi:printer" />{" "}
                   {isSaving ? "..." : "Factura / Ticket"}
                 </button>
-
                 <button
                   type="submit"
                   disabled={isSaving}
@@ -620,7 +646,7 @@ export default function ModalNuevaVenta({
           </div>
         </div>
 
-        {/* SUB-MODALES */}
+        {/* MODALES HIJOS */}
         <ModalNuevoCliente
           isOpen={isModalNuevoClienteOpen}
           onClose={handleCloseModalNuevoCliente}
@@ -633,12 +659,12 @@ export default function ModalNuevaVenta({
             handleClose();
           }}
           facturaUrl={facturaUrl}
+          clienteTelefono={selectedClient?.telefono || ""}
         />
 
-        {/* TICKET OCULTO PARA IMPRESIÓN (Estilos Inline necesarios para html2canvas) */}
+        {/* TICKET RENDER */}
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <div ref={ticketRef} style={ticketStyles.ticketContainer}>
-            {/* HEADER TICKET */}
             <div style={ticketStyles.ticketHeaderBg}>
               {user?.user_metadata?.avatar_url && (
                 <img
@@ -688,9 +714,7 @@ export default function ModalNuevaVenta({
                 </div>
               )}
             </div>
-
             <div style={ticketStyles.ticketBody}>
-              {/* CLIENTE */}
               <div style={ticketStyles.ticketSectionTitle}>CLIENTE</div>
               <div style={ticketStyles.ticketClientBox}>
                 <div style={ticketStyles.ticketClientName}>
@@ -702,7 +726,6 @@ export default function ModalNuevaVenta({
                 </div>
               </div>
 
-              {/* DETALLES */}
               <div style={ticketStyles.ticketSectionTitle}>
                 DETALLES DE VENTA
               </div>
@@ -714,7 +737,6 @@ export default function ModalNuevaVenta({
                 <span>Precio Unitario:</span>
                 <strong>${precioVigente?.toFixed(2)}</strong>
               </div>
-
               <div style={ticketStyles.ticketRowTotal}>
                 <span>TOTAL:</span>
                 <span>
@@ -724,7 +746,6 @@ export default function ModalNuevaVenta({
                   })}
                 </span>
               </div>
-
               <div
                 style={{
                   ...ticketStyles.ticketRow,
@@ -749,7 +770,6 @@ export default function ModalNuevaVenta({
                   {tipoPago.toUpperCase()}
                 </span>
               </div>
-
               {(tipoPago === "credito" || tipoPago === "transferencia") &&
                 parseFloat(montoPendiente) > 0 && (
                   <div
@@ -764,8 +784,6 @@ export default function ModalNuevaVenta({
                   </div>
                 )}
             </div>
-
-            {/* FOOTER TICKET */}
             <div style={ticketStyles.ticketFooter}>
               {datosBancarios.length > 0 && (
                 <>
@@ -819,7 +837,6 @@ export default function ModalNuevaVenta({
   );
 }
 
-// --- COMPONENTES AUXILIARES ---
 const InputGroup = ({ label, icon, className = "", ...props }) => (
   <div className="group">
     <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
@@ -837,7 +854,6 @@ const InputGroup = ({ label, icon, className = "", ...props }) => (
   </div>
 );
 
-// --- ESTILOS INLINE PARA EL TICKET (NECESARIO PARA HTML2CANVAS) ---
 const ticketStyles = {
   ticketContainer: {
     width: "400px",

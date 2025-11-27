@@ -12,12 +12,11 @@ const frasesAleatorias = [
   "Tu registro de cierre es fundamental. ¡Gracias por el esfuerzo!",
 ];
 
-// Componente de Búsqueda de Personal (Estilizado)
+// Componente de Búsqueda de Personal (Sin cambios en lógica interna)
 const PersonalSearchForCierre = ({ onSelect, allPersonal, disabled }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
 
-  // Filtrar solo al personal que está trabajando y por término de búsqueda
   const filteredPersonal = allPersonal.filter(
     (p) =>
       p.trabajando &&
@@ -51,8 +50,6 @@ const PersonalSearchForCierre = ({ onSelect, allPersonal, disabled }) => {
         disabled={disabled}
         className="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all duration-200 sm:text-sm shadow-sm disabled:bg-gray-100"
       />
-
-      {/* Resultados del Buscador */}
       {searchTerm.length > 0 && searchResults.length > 0 && (
         <ul className="absolute z-30 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-2">
           {searchResults.map((person) => (
@@ -62,25 +59,29 @@ const PersonalSearchForCierre = ({ onSelect, allPersonal, disabled }) => {
               className="p-3 cursor-pointer hover:bg-rose-50 transition-colors duration-150 flex items-center gap-3 border-b border-gray-50 last:border-0"
             >
               <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-xs">
-                 {person.nombre.charAt(0)}{person.apellidos.charAt(0)}
+                {person.nombre.charAt(0)}
+                {person.apellidos.charAt(0)}
               </div>
-              <span className="text-gray-700 font-medium">{person.nombre} {person.apellidos}</span>
+              <span className="text-gray-700 font-medium">
+                {person.nombre} {person.apellidos}
+              </span>
             </li>
           ))}
         </ul>
-      )}
-      
-      {searchTerm.length > 0 && searchResults.length === 0 && (
-         <div className="absolute z-30 w-full mt-2 p-3 bg-white border border-gray-100 rounded-xl shadow-xl text-center text-sm text-gray-500">
-            No se encontró personal activo con ese nombre.
-         </div>
       )}
     </div>
   );
 };
 
 // --- Componente Principal ---
-export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
+export const ModalFinDia = ({
+  isOpen,
+  onClose,
+  onDiaFinalizado,
+  listaDiaria,
+  pagosDiarios,
+  unidad,
+}) => {
   const [motivacion, setMotivacion] = useState("");
   const [allPersonal, setAllPersonal] = useState([]);
   const [registrador, setRegistrador] = useState(null);
@@ -93,18 +94,25 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [registroDiarioId, setRegistroDiarioId] = useState(null);
-  const [isModalFinDiaCompletoOpen, setIsModalFinDiaCompletoOpen] = useState(false);
+
+  // Estado para controlar el siguiente modal
+  const [isModalFinDiaCompletoOpen, setIsModalFinDiaCompletoOpen] =
+    useState(false);
+
+  // Función auxiliar para fecha MX
+  const getFechaMX = () => {
+    return new Date().toLocaleDateString("fr-CA", {
+      timeZone: "America/Mexico_City",
+    });
+  };
 
   const fetchPersonalAndRegistroDiario = useCallback(async () => {
     setLoading(true);
     setErrorMsg("");
     setSuccessMsg("");
-
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // const todayStr = getFechaMX(); // YA NO FILTRAMOS POR FECHA EXACTA
 
     try {
-      // 1. Obtener Personal Activo
       const { data: personal, error: personalError } = await supabase
         .from("personal")
         .select("id, nombre, apellidos, trabajando")
@@ -113,13 +121,14 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
       if (personalError) throw personalError;
       setAllPersonal(personal);
 
-      // 2. Obtener Registro del Día (Debe existir y NO estar finalizado)
+      // --- CORRECCIÓN AQUÍ ---
+      // Buscamos el último registro que tenga 'porcentaje_final' en NULL (Abierto)
+      // Sin importar la fecha, para capturar turnos de ayer u hoy.
       const { data: registros, error: registroError } = await supabase
         .from("porcentaje_diario")
         .select("id")
-        .eq("fecha", todayStr)
-        .is("porcentaje_final", null) // Solo si no tiene final
-        .order("id", { ascending: false })
+        .is("porcentaje_final", null) // Solo registros abiertos
+        .order("id", { ascending: false }) // El más reciente
         .limit(1);
 
       if (registroError) throw registroError;
@@ -127,7 +136,7 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
       if (registros && registros.length > 0) {
         setRegistroDiarioId(registros[0].id);
       } else {
-        setErrorMsg("No hay un día abierto para cerrar hoy, o ya fue finalizado.");
+        setErrorMsg("No se encontró ningún turno abierto para finalizar.");
       }
     } catch (error) {
       console.error("Error al cargar datos:", error);
@@ -139,10 +148,11 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
 
   useEffect(() => {
     if (isOpen) {
-      setMotivacion(frasesAleatorias[Math.floor(Math.random() * frasesAleatorias.length)]);
+      setMotivacion(
+        frasesAleatorias[Math.floor(Math.random() * frasesAleatorias.length)]
+      );
       fetchPersonalAndRegistroDiario();
     } else {
-      // Limpieza al cerrar
       setRegistrador(null);
       setPorcentajeFinal(0);
       setImagenFile(null);
@@ -170,19 +180,18 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (!registroDiarioId) return setErrorMsg("No se encontró el registro inicial del día.");
+    if (!registroDiarioId)
+      return setErrorMsg("No se encontró el registro inicial del día.");
     if (!registrador) return setErrorMsg("Selecciona quién registra.");
-    
-    // Validación de porcentaje
+
     const finalP = Number(porcentajeFinal);
-    if (isNaN(finalP) || finalP < 0 || finalP > 100) return setErrorMsg("Porcentaje inválido (0-100).");
-    
+    if (isNaN(finalP) || finalP < 0 || finalP > 100)
+      return setErrorMsg("Porcentaje inválido (0-100).");
     if (!imagenFile) return setErrorMsg("La fotografía es obligatoria.");
 
     setIsSubmitting(true);
 
     try {
-      // 1. Subir Imagen
       const fileExtension = imagenFile.name.split(".").pop();
       const fileName = `${Date.now()}_${registrador.id}_final.${fileExtension}`;
 
@@ -192,11 +201,10 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("fotos_diarias")
-        .getPublicUrl(uploadData.path);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("fotos_diarias").getPublicUrl(uploadData.path);
 
-      // 2. Actualizar Registro
       const { error: updateError } = await supabase
         .from("porcentaje_diario")
         .update({
@@ -207,13 +215,12 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
 
       if (updateError) throw updateError;
 
-      setSuccessMsg("¡Llegada registrada correctamente!");
-      
-      setTimeout(() => {
-        onDiaFinalizado(); 
-        onClose(); 
-      }, 1500);
+      setSuccessMsg("¡Llegada registrada! Continuando al cierre...");
 
+      // Abrimos el siguiente modal
+      setTimeout(() => {
+        setIsModalFinDiaCompletoOpen(true);
+      }, 1000);
     } catch (error) {
       console.error(error);
       setErrorMsg(`Error: ${error.message}`);
@@ -222,21 +229,31 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
     }
   };
 
+  // Handler para cerrar todo el flujo completamente
+  const handleFullClose = () => {
+    setIsModalFinDiaCompletoOpen(false);
+    onDiaFinalizado(); // Refrescamos dashboard
+    onClose(); // Cerramos este modal
+  };
+
   if (!isOpen) return null;
 
   return (
     <>
       {/* WRAPPER PRINCIPAL */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm transition-all duration-300">
-        
-        {/* CARD MODAL */}
-        <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
-          
-          {/* HEADER (Gradiente Atardecer) */}
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm transition-all duration-300 ${
+          isModalFinDiaCompletoOpen ? "hidden" : ""
+        }`}
+      >
+        <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden transform transition-all">
           <div className="bg-linear-to-r from-rose-600 via-pink-600 to-purple-600 p-5 flex justify-between items-center shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
-                <Icon icon="mdi:weather-sunset" className="text-white w-7 h-7" />
+                <Icon
+                  icon="mdi:weather-sunset"
+                  className="text-white w-7 h-7"
+                />
               </div>
               <h3 className="text-xl font-bold text-white tracking-wide">
                 Finalizar Día
@@ -244,174 +261,191 @@ export const ModalFinDia = ({ isOpen, onClose, onDiaFinalizado }) => {
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-white/80 hover:text-white"
               disabled={isSubmitting}
             >
               <Icon icon="mdi:close" width="28" />
             </button>
           </div>
-          
-          {/* BODY (Scrollable) */}
+
           <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
-            
             {loading ? (
-                <div className="flex flex-col items-center justify-center py-10 space-y-3">
-                    <Icon icon="line-md:loading-loop" width="48" className="text-rose-500" />
-                    <p className="text-gray-500 font-medium">Verificando estado del día...</p>
-                </div>
+              <div className="flex flex-col items-center justify-center py-10">
+                <Icon
+                  icon="line-md:loading-loop"
+                  width="48"
+                  className="text-rose-500"
+                />
+                <p className="text-gray-500 font-medium">
+                  Verificando estado...
+                </p>
+              </div>
             ) : (
-                <>
-                    {/* Frase Motivacional */}
-                    <div className="bg-linear-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm relative overflow-hidden">
-                        <div className="absolute top-0 right-0 -mt-2 -mr-2 opacity-10 text-orange-600">
-                          <Icon icon="mdi:flag-checkered" width="80" />
-                        </div>
-                        <h4 className="text-sm font-bold text-orange-700 uppercase tracking-wider mb-1 flex items-center gap-2">
-                          <Icon icon="mdi:check-decagram" /> ¡Casi listo!
-                        </h4>
-                        <p className="text-orange-900 font-medium italic relative z-10">"{motivacion}"</p>
-                    </div>
+              <>
+                {/* Frase Motivacional */}
+                <div className="bg-linear-to-br from-amber-50 to-orange-50 p-4 rounded-xl border border-orange-100 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 -mt-2 -mr-2 opacity-10 text-orange-600">
+                    <Icon icon="mdi:flag-checkered" width="80" />
+                  </div>
+                  <h4 className="text-sm font-bold text-orange-700 uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <Icon icon="mdi:check-decagram" /> ¡Casi listo!
+                  </h4>
+                  <p className="text-orange-900 font-medium italic relative z-10">
+                    "{motivacion}"
+                  </p>
+                </div>
 
-                    {/* Selector de Personal */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">Responsable del Cierre</label>
-                        
-                        {!registrador ? (
-                           <PersonalSearchForCierre
-                              onSelect={setRegistrador}
-                              allPersonal={allPersonal}
-                              disabled={isSubmitting}
-                           />
-                        ) : (
-                           // Tarjeta de Personal Seleccionado
-                           <div className="flex items-center justify-between bg-rose-50 border border-rose-100 p-3 rounded-xl animate-in fade-in">
-                              <div className="flex items-center gap-3">
-                                 <div className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold">
-                                    {registrador.nombre.charAt(0)}{registrador.apellidos.charAt(0)}
-                                 </div>
-                                 <div>
-                                    <p className="text-sm font-bold text-gray-800">{registrador.nombre} {registrador.apellidos}</p>
-                                    <p className="text-xs text-rose-500 font-medium">Registrador</p>
-                                 </div>
-                              </div>
-                              <button 
-                                onClick={() => setRegistrador(null)}
-                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                              >
-                                 <Icon icon="mdi:close-circle" width="20" />
-                              </button>
-                           </div>
-                        )}
-                    </div>
-
-                    {/* Input Porcentaje */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">Porcentaje de Llegada</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-rose-500">
-                              <Icon icon="mdi:percent" width="20" />
-                            </div>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={porcentajeFinal}
-                              onChange={(e) => setPorcentajeFinal(Math.min(100, Math.max(0, Number(e.target.value))))}
-                              className="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-xl font-bold text-center focus:bg-white focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all"
-                            />
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">
+                    Responsable del Cierre
+                  </label>
+                  {!registrador ? (
+                    <PersonalSearchForCierre
+                      onSelect={setRegistrador}
+                      allPersonal={allPersonal}
+                      disabled={isSubmitting}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between bg-rose-50 border border-rose-100 p-3 rounded-xl animate-in fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold">
+                          {registrador.nombre.charAt(0)}
+                          {registrador.apellidos.charAt(0)}
                         </div>
-                    </div>
-
-                    {/* Foto Evidencia */}
-                    <div className="space-y-3">
-                        <label className="text-sm font-bold text-gray-500 uppercase flex items-center gap-2">
-                          <Icon icon="mdi:camera" /> Foto del Medidor
-                        </label>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            // Sin capture para permitir galería
-                            onChange={handleImageChange}
-                            ref={fileInputRef}
-                            className="hidden"
-                        />
-                        
-                        {!imagenPreview ? (
-                            <button
-                              onClick={handleOpenFileInput}
-                              className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:text-rose-600 hover:border-rose-400 hover:bg-rose-50 transition-all duration-200 group"
-                            >
-                              <div className="p-3 bg-gray-100 rounded-full group-hover:bg-white group-hover:shadow-md transition-all">
-                                  <Icon icon="mdi:camera-plus" width="32" />
-                              </div>
-                              <span className="mt-2 text-sm font-medium">Subir Evidencia</span>
-                              <span className="text-xs text-gray-400">(Cámara o Galería)</span>
-                            </button>
-                        ) : (
-                            <div className="relative rounded-xl overflow-hidden shadow-lg group">
-                              <img src={imagenPreview} alt="Preview" className="w-full h-48 object-cover" />
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <button onClick={handleOpenFileInput} className="bg-white/90 text-gray-800 px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-xl hover:bg-white transform hover:scale-105 transition-all">
-                                    <Icon icon="mdi:camera-retake" /> Cambiar
-                                  </button>
-                              </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Mensajes */}
-                    {errorMsg && (
-                        <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-2 rounded-r animate-pulse">
-                            <Icon icon="mdi:alert-circle" />
-                            <span className="text-sm font-medium">{errorMsg}</span>
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">
+                            {registrador.nombre} {registrador.apellidos}
+                          </p>
+                          <p className="text-xs text-rose-500 font-medium">
+                            Registrador
+                          </p>
                         </div>
-                    )}
-                    {successMsg && (
-                        <div className="p-3 bg-green-50 border-l-4 border-green-500 text-green-700 flex items-center gap-2 rounded-r animate-in fade-in">
-                            <Icon icon="mdi:check-circle" />
-                            <span className="text-sm font-medium">{successMsg}</span>
-                        </div>
-                    )}
-                </>
+                      </div>
+                      <button
+                        onClick={() => setRegistrador(null)}
+                        className="p-2 text-gray-400 hover:text-red-500"
+                      >
+                        <Icon icon="mdi:close-circle" width="20" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">
+                    Porcentaje de Llegada
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Icon icon="mdi:percent" width="20" />
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={porcentajeFinal}
+                      onChange={(e) =>
+                        setPorcentajeFinal(
+                          Math.min(100, Math.max(0, Number(e.target.value)))
+                        )
+                      }
+                      className="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 text-xl font-bold text-center focus:bg-white focus:border-rose-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-gray-500 uppercase flex items-center gap-2">
+                    <Icon icon="mdi:camera" /> Foto del Medidor
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    ref={fileInputRef}
+                    className="hidden"
+                  />
+                  {!imagenPreview ? (
+                    <button
+                      onClick={handleOpenFileInput}
+                      className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-500 hover:text-rose-600 hover:border-rose-400 hover:bg-rose-50 transition-all duration-200 group"
+                    >
+                      <Icon icon="mdi:camera-plus" width="32" />{" "}
+                      <span className="mt-2 text-sm font-medium">
+                        Subir Evidencia
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="relative rounded-xl overflow-hidden shadow-lg group">
+                      <img
+                        src={imagenPreview}
+                        alt="Preview"
+                        className="w-full h-48 object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={handleOpenFileInput}
+                          className="bg-white/90 text-gray-800 px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+                        >
+                          <Icon icon="mdi:camera-retake" /> Cambiar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {errorMsg && (
+                  <div className="p-3 bg-red-50 text-red-700 rounded text-sm">
+                    {errorMsg}
+                  </div>
+                )}
+                {successMsg && (
+                  <div className="p-3 bg-green-50 text-green-700 rounded text-sm">
+                    {successMsg}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* FOOTER */}
           <div className="p-5 border-t border-gray-100 bg-gray-50 rounded-b-2xl shrink-0 flex justify-end gap-3">
-             <button
+            <button
               onClick={onClose}
-              className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-white hover:shadow-sm transition-all outline-none"
-             >
+              className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-white"
+            >
               Cancelar
-             </button>
-             <button
+            </button>
+            <button
               onClick={handleGuardarLlegada}
               disabled={isSubmitting || loading || !registrador || !imagenFile}
-              className={`
-                px-6 py-2.5 rounded-lg text-white font-medium shadow-lg shadow-rose-500/30
-                flex items-center gap-2 transition-all transform active:scale-95
-                ${(isSubmitting || loading || !registrador || !imagenFile)
-                  ? 'bg-gray-400 cursor-not-allowed transform-none' 
-                  : 'bg-linear-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 hover:-translate-y-0.5'
-                }
-              `}
-             >
+              className={`px-6 py-2.5 rounded-lg text-white font-medium shadow-lg flex items-center gap-2 ${
+                isSubmitting || loading || !registrador || !imagenFile
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-linear-to-r from-rose-600 to-pink-600 hover:from-rose-700"
+              }`}
+            >
               {isSubmitting ? (
-                 <><Icon icon="line-md:loading-loop" width="24"/> Guardando...</>
+                <>
+                  <Icon icon="line-md:loading-loop" width="24" /> Guardando...
+                </>
               ) : (
-                 <><Icon icon="mdi:content-save-check" width="20" /> Finalizar</>
+                <>
+                  <Icon icon="mdi:content-save-check" width="20" /> Siguiente
+                </>
               )}
-             </button>
+            </button>
           </div>
-
         </div>
       </div>
 
       <ModalFinDiaCompleto
         isOpen={isModalFinDiaCompletoOpen}
-        onClose={() => setIsModalFinDiaCompletoOpen(false)}
-        registrador={registrador}
+        onClose={handleFullClose} // Usamos FullClose para cerrar todo el ciclo
+        registrador={registrador} // Pasamos el registrador seleccionado
         onDiaFinalizado={onDiaFinalizado}
+        listaDiaria={listaDiaria}
+        pagosDiarios={pagosDiarios}
+        unidad={unidad}
       />
     </>
   );

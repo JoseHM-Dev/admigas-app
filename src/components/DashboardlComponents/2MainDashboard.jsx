@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-// Se mantienen las importaciones de imágenes PNG originales:
 import IconNuevaVenta from "../../assets/img/icono nueva venta.png";
 import IconNuevoCliente from "../../assets/img/icono nuevo cliente.png";
 import IconIrACreditos from "../../assets/img/icono ir a creditos.png";
@@ -50,6 +49,7 @@ export const MainDashboard = () => {
   // "INICIADO": Nuevo día guardado, campos iniciales llenos, final null. Botón "Fin Día" activo.
   // "TERMINADO": Fin día guardado (campos llenos en porcentaje_diario), pero falta reporte_diario. Botón "Actividades Planta" activo.
   const [estadoDelDia, setEstadoDelDia] = useState("CERRADO");
+  const [activeTurnoId, setActiveTurnoId] = useState(null);
   const [selectedVenta, setSelectedVenta] = useState(null);
   const navigate = useNavigate();
 
@@ -86,18 +86,17 @@ export const MainDashboard = () => {
   };
 
   const fetchListaDiaria = useCallback(async () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0");
-    const day = String(today.getDate()).padStart(2, "0");
-    const fechaLocal = `${year}-${month}-${day}`;
+    if (!activeTurnoId) {
+      setListaDiaria([]);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("carga_casa")
       .select(
-        `id_carga, consumo_litros, ret, monto_total, tipo_pago, casa_habitacion ( calle, numero, colonia )`
+        `id_carga, consumo_litros, ret, monto_total, tipo_pago, id_porcentaje, casa_habitacion ( calle, numero, colonia )`
       )
-      .eq("fecha_carga", fechaLocal);
+      .eq("id_porcentaje", activeTurnoId); // FILTRO CLAVE: Solo ventas de este turno
 
     if (error) console.error("Error fetching lista diaria:", error);
     else if (data) {
@@ -109,22 +108,45 @@ export const MainDashboard = () => {
       }));
       setListaDiaria(flattenedData);
     }
-  }, []);
+  }, [activeTurnoId]); // Se re-ejecuta cuando cambia el ID del turno
 
   const fetchPagosDiarios = useCallback(async () => {
-    const today = new Date().toISOString().split("T")[0];
-    const { data, error } = await supabase
-      .from("pagos")
-      .select("monto_pago")
-      .eq("fecha_pago", today);
-
-    if (error) {
-      console.error("Error fetching pagos diarios:", error);
+    // Si no hay turno activo, no mostramos pagos (igual que la lista diaria)
+    if (!activeTurnoId) {
       setPagosDiarios([]);
-    } else {
-      setPagosDiarios(data);
+      return;
     }
-  }, []);
+
+    try {
+      const { data, error } = await supabase
+        .from("pagos")
+        .select(`
+          id,
+          monto_pago,
+          tipo_pago,
+          fecha_pago,
+          carga_casa (
+            casa_habitacion ( calle, numero)
+          )
+        `)
+        .eq("id_porcentaje", activeTurnoId); // FILTRO CLAVE: Solo pagos de este turno
+
+      if (error) {
+        console.error("Error fetching pagos diarios:", error);
+        setPagosDiarios([]);
+      } else {
+        // Aplanamos un poco la estructura para facilitar el uso en DailySummary
+        const pagosFormateados = data.map(p => ({
+          ...p,
+          nombre_cliente: p.carga_casa?.casa_habitacion?.nombre_cliente || "Cliente",
+          apellidos_cliente: p.carga_casa?.casa_habitacion?.apellidos || ""
+        }));
+        setPagosDiarios(pagosFormateados);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, [activeTurnoId]); // Dependencia: ID del turno
 
   // ----------------------------------------------------
   // FUNCIÓN: Verificar estado del Fin de Día (LÓGICA NUEVA)
@@ -139,13 +161,21 @@ export const MainDashboard = () => {
         .limit(1)
         .maybeSingle();
 
-      if (porError) { console.error(porError); return; }
+      if (porError) {
+        console.error(porError);
+        return;
+      }
 
       // Si no existe historial, todo nuevo
       if (!ultimoRegistro) {
         setEstadoDelDia("CERRADO");
+        setActiveTurnoId(null);
         return;
       }
+
+      // IMPORTANTE: Establecemos el ID del turno actual para filtrar las ventas
+      // Independientemente de si está cerrado o abierto, queremos ver las ventas asociadas a este último registro hasta que se cree uno nuevo.
+      setActiveTurnoId(ultimoRegistro.id);
 
       // 2. Lógica de estados en cadena
       if (ultimoRegistro.porcentaje_final === null) {
@@ -164,10 +194,8 @@ export const MainDashboard = () => {
         if (repError) console.error(repError);
 
         if (ultimoReporte && ultimoReporte.finalizado === true) {
-          // C) Todo completado
           setEstadoDelDia("CERRADO");
         } else {
-          // D) Falta el reporte de actividades en planta
           setEstadoDelDia("TERMINADO");
           setRegistrador({ id: ultimoRegistro.registrador_id });
         }
@@ -195,9 +223,16 @@ export const MainDashboard = () => {
   }, []);
 
   const refreshData = useCallback(() => {
-    fetchListaDiaria();
+    verificarEstadoFinDeDia();
     fetchPagosDiarios();
-  }, [fetchListaDiaria, fetchPagosDiarios]);
+    fetchListaDiaria();
+    fetchAgenda();
+  }, [
+    verificarEstadoFinDeDia,
+    fetchPagosDiarios,
+    fetchListaDiaria,
+    fetchAgenda,
+  ]);
 
   const handleReagendar = (item) => {
     setSelectedAgendaItem(item);
@@ -232,8 +267,15 @@ export const MainDashboard = () => {
     refreshData();
     fetchAgenda();
     fetchProximaCargaEdificio();
-    verificarEstadoFinDeDia();
-  }, [fetchAgenda, verificarEstadoFinDeDia, refreshData]);
+  }, [fetchAgenda, refreshData]);
+
+  useEffect(() => {
+    if (activeTurnoId) {
+      fetchListaDiaria();
+    } else {
+      setListaDiaria([]);
+    }
+  }, [activeTurnoId, fetchListaDiaria]);
 
   const handleOpenVentaModal = () => setIsModalVentaOpen(true);
   const handleOpenNuevoDiaModal = () => setIsModalNuevoDiaOpen(true);
@@ -259,12 +301,11 @@ export const MainDashboard = () => {
       .delete()
       .eq("id_carga", id);
     if (error) console.log("Hubo un error al eliminar el registro.");
-    else refreshData();
+    else fetchListaDiaria();
   };
 
   const handleDiaGuardado = () => {
     refreshData();
-    verificarEstadoFinDeDia();
     console.log("Acción de día registrada con éxito.");
   };
 
@@ -292,7 +333,6 @@ export const MainDashboard = () => {
 
         {/* CONTENEDOR DE BOTONES CON LÓGICA ESTRICTA */}
         <div className="flex flex-row items-center justify-center gap-4 mb-6 flex-wrap">
-          
           {/* 1. BOTÓN NUEVO DÍA 
               Estado activo: Solo cuando todo el ciclo anterior terminó (CERRADO). */}
           <button
@@ -304,7 +344,10 @@ export const MainDashboard = () => {
                 : "bg-gray-300 text-gray-400 cursor-not-allowed border-gray-300"
             } border-black rounded-md shadow-sm transition-all duration-150`}
           >
-            <Icon icon="line-md:moon-alt-to-sunny-outline-loop-transition" width="24" />
+            <Icon
+              icon="line-md:moon-alt-to-sunny-outline-loop-transition"
+              width="24"
+            />
             Nuevo Día
           </button>
 
@@ -353,7 +396,6 @@ export const MainDashboard = () => {
             <Icon icon="line-md:clipboard-plus-twotone" width="24" />
             Nueva Venta
           </button>
-
         </div>
 
         <div className="overflow-x-auto shadow-lg rounded-lg">
@@ -457,6 +499,9 @@ export const MainDashboard = () => {
         isOpen={isModalFinDiaOpen}
         onClose={() => setIsModalFinDiaOpen(false)}
         onDiaFinalizado={handleDiaGuardado}
+        listaDiaria={listaDiaria}
+        pagosDiarios={pagosDiarios}
+        unidad={unidad}
       />
       <ModalFinDiaCompleto
         isOpen={isModalFinDiaCompletoOpen}

@@ -190,8 +190,7 @@ export const ModalNuevoDia = ({ isOpen, onClose, onDiaGuardado }) => {
     setErrorMsg("");
     setSuccessMsg("");
 
-    const today = new Date();
-    const todayDateString = today.toISOString().split('T')[0];
+    const todayDateString = new Date().toLocaleDateString('fr-CA', { timeZone: 'America/Mexico_City' });
 
     // Validaciones básicas antes de llamar a la BD
     if (personalAbordo.length === 0) return setErrorMsg("Debes seleccionar al menos una persona.");
@@ -206,6 +205,7 @@ export const ModalNuevoDia = ({ isOpen, onClose, onDiaGuardado }) => {
         .from("porcentaje_diario")
         .select("id")
         .eq("fecha", todayDateString)
+        .is("porcentaje_final",null,)
         .maybeSingle();
 
       if (checkError) throw checkError;

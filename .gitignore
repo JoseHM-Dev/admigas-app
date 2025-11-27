@@ -25,3 +25,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Builds de producción
+dist/
+dist-electron/
+release/
+build/
+
+# Ejecutables e instaladores
+*.exe
+*.dmg
+*.apk
+*.zip
+*.asar
