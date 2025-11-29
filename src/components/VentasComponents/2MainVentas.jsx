@@ -6,6 +6,7 @@ import { Icon } from '@iconify/react';
 import ModalNuevaVenta from '../ui/Modales/ModalNuevaVenta';
 
 export const MainVentas = () => {
+  // Ajuste de fecha local para que el input date inicie en hoy
   const today = new Date();
   const offset = today.getTimezoneOffset();
   today.setMinutes(today.getMinutes() - offset);
@@ -14,252 +15,411 @@ export const MainVentas = () => {
   const [ventas, setVentas] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
-  const [listaDiaria, setListaDiaria] = useState([]);
-  const [selectedVenta] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // NUEVO ESTADO: Para guardar la URL del PDF
-  const [reportePdfUrl, setReportePdfUrl] = useState(null);
+  // Datos para armar el Reporte Completo en pantalla
+  const [reporteData, setReporteData] = useState(null); // Totales financieros (si el día se cerró)
+  const [turnoData, setTurnoData] = useState(null);     // Fotos y porcentajes
+  const [plantData, setPlantData] = useState({ autotanque: [], carburacion: [] }); // Actividades planta
 
-  const fetchVentas = useCallback(async () => {
-    if (!fechaSeleccionada) {
-      setVentas([]);
-      setReportePdfUrl(null); // Limpiar URL si no hay fecha
-      return;
-    }
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // 1. Obtener Lista Diaria (Tu lógica existente)
-    const listaDiaria = await supabase.rpc("get_lista_diaria", { p_fecha: fechaSeleccionada });
-    setListaDiaria(listaDiaria.data || []);
+  // --- 1. CONSULTA DE DATOS ---
+  const fetchData = useCallback(async () => {
+    if (!fechaSeleccionada) return;
 
     setCargando(true);
     setError(null);
-    setReportePdfUrl(null); // Resetear URL mientras carga
+    setReporteData(null);
+    setTurnoData(null);
+    setPlantData({ autotanque: [], carburacion: [] });
 
     try {
-      // 2. NUEVA LÓGICA: Buscar el reporte PDF en reporte_diario
-      // NOTA: Asegúrate que la columna de fecha en 'reporte_diario' se llame 'fecha'. 
-      // Si se llama 'created_at' o 'fecha_reporte', cámbialo aquí.
-      const { data: reporteData, error: reporteError } = await supabase
-        .from('reporte_diario')
-        .select('url')
-        .eq('fecha', fechaSeleccionada) // <--- Verifica el nombre de tu columna de fecha en la BD
-        .maybeSingle(); 
-
-      if (!reporteError && reporteData) {
-        setReportePdfUrl(reporteData.url);
-      }
-
-      // 3. Obtener las Ventas (Tu lógica existente)
+      // A. OBTENER VENTAS (Lista detallada)
       const fechaInicio = `${fechaSeleccionada}T00:00:00.000Z`;
       const fechaFin = `${fechaSeleccionada}T23:59:59.999Z`;
 
-      const { data, error: queryError } = await supabase
+      const { data: ventasData, error: ventasError } = await supabase
         .from('carga_casa')
         .select(`
-          id_carga,
-          fecha_carga,
-          consumo_litros,
-          ret,
-          monto_total,
-          casa_habitacion (
-            calle,
-            numero,
-            colonia
-          )
+          id_carga, fecha_carga, consumo_litros, ret, monto_total, tipo_pago,
+          casa_habitacion ( calle, numero, colonia )
         `)
         .gte('fecha_carga', fechaInicio)
         .lte('fecha_carga', fechaFin)
         .order('fecha_carga', { ascending: false });
 
-      if (queryError) {
-        throw new Error(queryError.message || 'Error al obtener las ventas.');
+      if (ventasError) throw ventasError;
+      setVentas(ventasData || []);
+
+      // B. OBTENER DATOS DE TURNO (Para las fotos cuadradas y niveles)
+      const { data: turno, error: turnoError } = await supabase
+        .from('porcentaje_diario')
+        .select(`
+            *,
+            registrador_inicial:personal!registrador_id (nombre, apellidos)
+        `)
+        .eq('fecha', fechaSeleccionada)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!turnoError && turno) {
+        setTurnoData(turno);
       }
 
-      setVentas(data || []);
+      // C. OBTENER REPORTE FINANCIERO (Si ya se cerró el día en ModalFinDiaCompleto)
+      const { data: reporte, error: reporteError } = await supabase
+        .from('reporte_diario')
+        .select('*')
+        .eq('fecha', fechaSeleccionada)
+        .maybeSingle();
+
+      if (!reporteError && reporte) {
+        setReporteData(reporte);
+      }
+
+      // D. OBTENER ACTIVIDADES DE PLANTA (Autotanque y Carburación)
+      const { data: autoData } = await supabase.from('carga_autotanque').select('*').eq('fecha', fechaSeleccionada);
+      const { data: carbData } = await supabase.from('carburacion').select('*').eq('fecha', fechaSeleccionada);
+
+      setPlantData({
+        autotanque: autoData || [],
+        carburacion: carbData || []
+      });
 
     } catch (err) {
-      setError(err.message);
-      setVentas([]);
+      console.error(err);
+      setError("Error cargando la información del día.");
     } finally {
       setCargando(false);
     }
   }, [fechaSeleccionada]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const handleDelete = async (id) => {
-    const isConfirmed = window.confirm(
-      "¿Estás seguro de que quieres eliminar este registro?"
-    );
-    if (!isConfirmed) {
-      return;
-    }
-
-    const { error } = await supabase
-      .from("carga_casa")
-      .delete()
-      .eq("id_carga", id);
-
-    if (error) {
-      console.error("Error deleting item:", error);
-      alert("Hubo un error al eliminar el registro.");
-    } else {
-      setVentas((currentList) =>
-        currentList.filter((item) => item.id_carga !== id)
-      );
-      console.log("Item deleted successfully with id:", id);
-    }
+    if (!window.confirm("¿Eliminar este registro de venta?")) return;
+    const { error } = await supabase.from("carga_casa").delete().eq("id_carga", id);
+    if (!error) fetchData();
   };
 
-  const handleOpenModal = () => setIsModalOpen(true);
+  const formatMoney = (amount) => Number(amount || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
-  useEffect(() => {
-    fetchVentas();
-  }, [fetchVentas]);
-
-  const handleVentaGuardada = async () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const fechaLocal = `${year}-${month}-${day}`;
-
-    const { data, error } = await supabase.rpc("get_lista_diaria", { p_fecha: fechaLocal });
-
-    if (error) {
-      console.error("Error fetching lista diaria:", error);
-    } else {
-      setListaDiaria(data);
-      fetchVentas(); 
-    }
+  // Función para abrir el diálogo de impresión nativo del navegador
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
-    <main>
-      <Titulo Texto='Tus Ventas' />
+    <main className="pb-20 bg-gray-50 min-h-screen">
+      <div className="print:hidden">
+        <Titulo Texto='Historial y Reportes' />
+      </div>
       
-      <section className="m-auto max-w-5xl p-4">
-        {/* Controles Superiores */}
-        <div className="flex flex-col items-center gap-2 bg-white shadow-2xl rounded-4xl p-4 md:flex-row md:justify-between md:items-center transition-all duration-200">
-          <div className='flex flex-col gap-2 md:flex-row md:items-center'>
-            <label htmlFor="fecha-venta" className="font-bold text-gray-700">Selecciona una fecha:</label>
-            <input 
-              type="date" 
-              id="fecha-venta"
-              value={fechaSeleccionada}
-              onChange={(e) => setFechaSeleccionada(e.target.value)}
-              className="p-2 border bg-[#ad9ade] text-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:cursor-pointer hover:bg-white hover:text-black/70 transition-all duration-300 "
-            />
+      <section className="m-auto max-w-6xl p-4 space-y-8">
+        
+        {/* --- 1. BARRA DE NAVEGACIÓN Y FILTRO (Se oculta al imprimir) --- */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-200 print:hidden">
+          <div className='flex items-center gap-3 w-full md:w-auto'>
+            <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+               <Icon icon="mdi:calendar-search" width="24" />
+            </div>
+            <div className='flex flex-col w-full'>
+              <label htmlFor="fecha-venta" className="text-xs font-bold text-gray-400 uppercase">Fecha de Consulta</label>
+              <input 
+                type="date" 
+                id="fecha-venta"
+                value={fechaSeleccionada}
+                onChange={(e) => setFechaSeleccionada(e.target.value)}
+                className="font-bold text-gray-700 bg-transparent outline-none cursor-pointer"
+              />
+            </div>
           </div>
-          <div className="flex flex-col-reverse items-center gap-2 md:flex-row">
-            <Link to="/dashboard" className="flex bg-[#6432e4] text-white items-center gap-2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 hover:cursor-pointer">
-              <Icon icon="line-md:arrow-left-circle-twotone" width="24" />
-              Regresar a Dashboard
+
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+            <Link to="/dashboard" className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors text-sm flex items-center gap-2">
+              <Icon icon="mdi:view-dashboard-outline" width="18" /> Dashboard
             </Link>
             <button 
-              onClick={handleOpenModal}
-              className="flex p-2 border gap-4 m-3 font-bold bg-[#6432e4] text-white  border-black rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-md shadow-indigo-200 transition-all transform active:scale-95 text-sm flex items-center gap-2"
             >
-              <Icon icon="line-md:clipboard-plus-twotone" width="24"  />
-              Nueva Venta
+              <Icon icon="mdi:plus" width="18" /> Nueva Venta
+            </button>
+             {/* Botón Imprimir: Reemplaza la descarga de PDF */}
+            <button 
+               onClick={handlePrint}
+               className="px-4 py-2 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+               title="Imprimir Reporte"
+            >
+               <Icon icon="mdi:printer" width="18" /> Imprimir
             </button>
           </div>
         </div>
 
-        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-8  transition-all duration-200 animate-pulse">
-          Resultados de Ventas
-        </h2>
-        
-        {/* Tabla de Ventas */}
-        <div className="overflow-x-auto shadow-lg rounded-lg">
-          <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-            <thead>
-              <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white ">
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">ID Carga</th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">Fecha Carga</th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">Direccion</th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">Consumo (Lts)</th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">Ret (Lts)</th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">Monto Total</th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cargando ? (
-                <tr>
-                  <td colSpan="8" className="py-4 px-4 text-center text-gray-600">Cargando...</td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan="8" className="py-4 px-4 text-center text-red-500">Error: {error}</td>
-                </tr>
-              ) : ventas.length > 0 ? (
-                ventas.map((venta) => (
-                  <tr
-                    key={venta.id_carga}
-                    className="hover:bg-blue-50 transition-all duration-150 "
-                  >
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">{venta.id_carga}</td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">{venta.fecha_carga}</td>
-                    <td className="py-3 px-6 text-left text-sm text-gray-500">{venta.casa_habitacion?.calle || 'N/A'} #{venta.casa_habitacion?.numero || 'N/A'}, {venta.casa_habitacion?.colonia || 'N/A'}</td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">{venta.consumo_litros} lts</td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">{venta.ret} lts</td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">$ {venta.monto_total}</td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm font-medium">
-                      <div className="flex justify-center space-x-2">
-                        <button
-                          onClick={() => handleDelete(venta.id_carga)}
-                          className=" text-red-600 hover:text-red-900 flex items-center gap-1 hover:cursor-pointer"
-                        >
-                          <Icon icon="line-md:close-circle-twotone" width="24" />Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="8" className="py-4 px-4 text-center text-gray-500">
-                    No hay ventas registradas para esta fecha.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* --- NUEVO BOTÓN DE DESCARGA DE REPORTE --- */}
-        <div className="flex justify-end mt-6">
-          {reportePdfUrl ? (
-            <a 
-              href={reportePdfUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white font-bold rounded-lg shadow-lg hover:bg-red-700 hover:-translate-y-1 transition-all duration-200"
-            >
-              <Icon icon="mdi:file-pdf-box" width="24" />
-              Descargar Reporte del Día ({fechaSeleccionada})
-            </a>
-          ) : (
-            <div className="flex items-center gap-2 px-6 py-3 bg-gray-300 text-gray-500 font-bold rounded-lg cursor-not-allowed">
-              <Icon icon="mdi:file-pdf-box" width="24" />
-              Reporte no disponible
+        {cargando ? (
+           <div className="flex flex-col items-center justify-center py-20">
+              <Icon icon="line-md:loading-loop" width="48" className="text-indigo-500 mb-4"/>
+              <p className="text-gray-400 animate-pulse">Consultando base de datos...</p>
+           </div>
+        ) : (
+          <div className="print:p-0">
+            {/* --- 2. ENCABEZADO DEL REPORTE --- */}
+            <div className="text-center mb-8 print:text-left print:mb-6">
+               <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tight">
+                  Reporte Operativo
+               </h2>
+               <p className="text-gray-500 font-medium text-lg">
+                  {new Date(fechaSeleccionada + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+               </p>
+               {/* Badge de Estado */}
+               <div className="mt-2 flex justify-center print:justify-start">
+                  {reporteData ? (
+                     <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase rounded-full flex items-center gap-1 border border-green-200">
+                        <Icon icon="mdi:check-circle" /> Día Cerrado Correctamente
+                     </span>
+                  ) : (
+                     <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold uppercase rounded-full flex items-center gap-1 border border-amber-200 animate-pulse">
+                        <Icon icon="mdi:clock-outline" /> Día en Curso (Abierto)
+                     </span>
+                  )}
+               </div>
             </div>
-          )}
-        </div>
+
+            {/* --- 3. EVIDENCIA VISUAL (FOTOS CUADRADAS) --- */}
+            {turnoData ? (
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:grid-cols-2 print:gap-4">
+                  
+                  {/* Tarjeta INICIO */}
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                     <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
+                        <span className="font-bold text-sm uppercase flex items-center gap-2"><Icon icon="mdi:login" width="20"/> Inicio de Turno</span>
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded text-white font-medium">
+                           {turnoData.registrador_inicial?.nombre || 'N/A'}
+                        </span>
+                     </div>
+                     <div className="p-6 flex gap-6 items-center flex-1">
+                        <div className="w-1/2 flex flex-col justify-center">
+                           <p className="text-xs text-gray-400 uppercase font-bold tracking-widest">Nivel Inicial</p>
+                           <p className="text-5xl font-black text-gray-800">{turnoData.porcentaje_inicial}%</p>
+                        </div>
+                        {/* Contenedor Cuadrado para la Foto */}
+                        <div className="w-1/2 aspect-square bg-gray-100 rounded-xl overflow-hidden border-2 border-gray-100 shadow-inner">
+                           {turnoData.url_inicial ? (
+                              <img src={turnoData.url_inicial} alt="Inicio" className="w-full h-full object-cover" />
+                           ) : (
+                              <div className="flex items-center justify-center h-full text-gray-400 text-xs font-medium">Sin Foto</div>
+                           )}
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Tarjeta FIN */}
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                     <div className="bg-rose-600 p-4 flex justify-between items-center text-white">
+                        <span className="font-bold text-sm uppercase flex items-center gap-2"><Icon icon="mdi:logout" width="20"/> Cierre de Turno</span>
+                        {reporteData && <Icon icon="mdi:check-decagram" className="text-white/80" width="20"/>}
+                     </div>
+                     <div className="p-6 flex gap-6 items-center flex-1">
+                        <div className="w-1/2 flex flex-col justify-center">
+                           <p className="text-xs text-gray-400 uppercase font-bold tracking-widest">Nivel Final</p>
+                           <p className={`text-5xl font-black ${turnoData.porcentaje_final !== null ? 'text-gray-800' : 'text-gray-300'}`}>
+                              {turnoData.porcentaje_final ?? '--'}%
+                           </p>
+                        </div>
+                        {/* Contenedor Cuadrado para la Foto */}
+                        <div className="w-1/2 aspect-square bg-gray-100 rounded-xl overflow-hidden border-2 border-gray-100 shadow-inner">
+                           {turnoData.url_final ? (
+                              <img src={turnoData.url_final} alt="Final" className="w-full h-full object-cover" />
+                           ) : (
+                              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                 <Icon icon="mdi:camera-off" width="24" className="mb-1 opacity-50"/>
+                                 <span className="text-[10px] font-medium">Pendiente</span>
+                              </div>
+                           )}
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            ) : (
+               <div className="p-8 mb-8 bg-red-50 border border-red-100 rounded-xl text-center text-red-600 font-medium">
+                  No hay registro de turno iniciado para esta fecha.
+               </div>
+            )}
+
+            {/* --- 4. RESUMEN FINANCIERO (Cards) --- */}
+            {reporteData && (
+               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:grid-cols-4">
+                  {/* Litros */}
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                     <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Litros Totales</div>
+                     <div className="text-3xl font-black text-blue-600">{reporteData.litros_totales}</div>
+                     <div className="text-xs text-gray-400 font-medium mt-1">Lts Vendidos</div>
+                  </div>
+                  {/* Efectivo */}
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                     <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Caja Efectivo</div>
+                     <div className="text-3xl font-black text-green-600 tracking-tight">{formatMoney(reporteData.efectivo)}</div>
+                     <div className="text-xs text-gray-400 font-medium mt-1">Ventas Contado</div>
+                  </div>
+                  {/* Digital */}
+                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                     <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Bancos / Digital</div>
+                     <div className="text-3xl font-black text-purple-600 tracking-tight">{formatMoney(reporteData.transferencia + reporteData.tarjeta)}</div>
+                     <div className="text-xs text-gray-400 font-medium mt-1">Transferencias</div>
+                  </div>
+                   {/* Cobranza */}
+                   <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 text-center">
+                     <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Recuperado</div>
+                     <div className="text-3xl font-black text-teal-600 tracking-tight">{formatMoney(reporteData.cobrados)}</div>
+                     <div className="text-xs text-gray-400 font-medium mt-1">Abonos Crédito</div>
+                  </div>
+               </div>
+            )}
+
+            {/* --- 5. ACTIVIDADES EN PLANTA --- */}
+            {(plantData.autotanque.length > 0 || plantData.carburacion.length > 0) && (
+               <div className="mb-8 bg-white rounded-xl border border-gray-200 p-6 shadow-sm break-inside-avoid">
+                  <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+                     <Icon icon="mdi:factory" className="text-orange-500"/> Actividades en Planta
+                  </h3>
+                  
+                  {/* Autotanques */}
+                  {plantData.autotanque.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        {plantData.autotanque.map((at, idx) => (
+                            <div key={idx} className="bg-orange-50 rounded-lg p-3 border border-orange-100 flex gap-4">
+                                {/* Fotos de AT */}
+                                <div className="flex flex-col gap-2 w-20 shrink-0">
+                                    <div className="aspect-square bg-gray-200 rounded overflow-hidden">
+                                        <img src={at.url_inicial} className="w-full h-full object-cover" alt="AT Ini"/>
+                                    </div>
+                                    <div className="aspect-square bg-gray-200 rounded overflow-hidden">
+                                        <img src={at.url_final} className="w-full h-full object-cover" alt="AT Fin"/>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col justify-center">
+                                    <p className="font-bold text-orange-800 text-xs uppercase mb-1">Carga Autotanque</p>
+                                    <p className="text-xl font-bold text-gray-800">{at.litros} Lts</p>
+                                    <p className="text-sm text-gray-600 font-mono">{formatMoney(at.monto)}</p>
+                                    <div className="flex gap-2 mt-2 text-[10px] font-bold text-orange-600">
+                                        <span className="bg-white px-2 py-1 rounded border border-orange-100">Ini: {at.porcentaje_inicial}%</span>
+                                        <span className="bg-white px-2 py-1 rounded border border-orange-100">Fin: {at.porcentaje_final}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+
+                  {/* Carburación */}
+                  {plantData.carburacion.length > 0 && (
+                      <div className="space-y-2">
+                         {plantData.carburacion.map((cb, idx) => (
+                            <div key={idx} className="bg-yellow-50 rounded-lg p-3 border border-yellow-100 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                   <div className="p-2 bg-yellow-100 rounded-full text-yellow-600"><Icon icon="mdi:gas-cylinder" width="18"/></div>
+                                   <div>
+                                      <p className="font-bold text-yellow-900 text-xs uppercase">Salida por Carburación</p>
+                                      <p className="font-mono text-xs text-yellow-700">{formatMoney(cb.monto)}</p>
+                                   </div>
+                                </div>
+                                <p className="text-lg font-bold text-gray-800">{cb.litros} Lts</p>
+                            </div>
+                         ))}
+                      </div>
+                  )}
+               </div>
+            )}
+
+            {/* --- 6. TABLA DETALLADA DE VENTAS --- */}
+            <div className="space-y-4">
+                <div className="flex justify-between items-end print:hidden">
+                   <h3 className="text-lg font-bold text-gray-700 flex items-center gap-2">
+                      <Icon icon="mdi:format-list-bulleted" className="text-indigo-500"/> Detalle de Transacciones
+                   </h3>
+                   <span className="text-xs font-bold text-gray-400 uppercase bg-white border border-gray-200 px-2 py-1 rounded">
+                      {ventas.length} Registros
+                   </span>
+                </div>
+                
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden print:border print:shadow-none">
+                   <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[10px] tracking-wider border-b border-gray-200">
+                         <tr>
+                            <th className="px-4 py-3">Hora</th>
+                            <th className="px-4 py-3">Cliente / Dirección</th>
+                            <th className="px-4 py-3 text-center">Litros</th>
+                            <th className="px-4 py-3 text-center">Ret</th>
+                            <th className="px-4 py-3 text-right">Total</th>
+                            <th className="px-4 py-3 text-center">Método</th>
+                            <th className="px-4 py-3 text-center print:hidden">Acción</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                         {ventas.length > 0 ? (
+                            ventas.map((venta) => (
+                               <tr key={venta.id_carga} className="hover:bg-indigo-50/30 transition-colors">
+                                  <td className="px-4 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">
+                                     {new Date(venta.fecha_carga).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                     <div className="font-bold text-gray-800 text-xs">{venta.casa_habitacion?.calle || 'S/D'} #{venta.casa_habitacion?.numero}</div>
+                                     <div className="text-[10px] text-gray-400 uppercase">{venta.casa_habitacion?.colonia}</div>
+                                  </td>
+                                  <td className="px-4 py-3 text-center font-medium text-gray-600">{venta.consumo_litros}</td>
+                                  <td className="px-4 py-3 text-center text-red-400 font-medium">{venta.ret > 0 ? venta.ret : '-'}</td>
+                                  <td className="px-4 py-3 text-right font-black text-gray-800">{formatMoney(venta.monto_total)}</td>
+                                  <td className="px-4 py-3 text-center">
+                                     <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border
+                                        ${venta.tipo_pago === 'efectivo' 
+                                            ? 'bg-green-50 text-green-700 border-green-100' 
+                                            : 'bg-purple-50 text-purple-700 border-purple-100'}
+                                     `}>
+                                        {venta.tipo_pago}
+                                     </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-center print:hidden">
+                                     <button onClick={() => handleDelete(venta.id_carga)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                        <Icon icon="mdi:trash-can-outline" width="18"/>
+                                     </button>
+                                  </td>
+                               </tr>
+                            ))
+                         ) : (
+                            <tr>
+                               <td colSpan="7" className="p-8 text-center text-gray-400 italic">No hay ventas registradas en esta fecha.</td>
+                            </tr>
+                         )}
+                      </tbody>
+                   </table>
+                </div>
+            </div>
+          </div>
+        )}
 
       </section>
 
       <ModalNuevaVenta
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        venta={selectedVenta}
-        onVentaGuardada={handleVentaGuardada}
+        venta={null}
+        onVentaGuardada={fetchData}
       />
-
-      <section className='bg-yellow-400 hidden'>
-        listaDiaria {JSON.stringify(listaDiaria)}
-      </section>
       
+      {/* Estilos para impresión limpia */}
+      <style>{`
+         @media print {
+            body { background: white; margin: 0; padding: 0; }
+            main { padding-bottom: 0; min-height: auto; }
+            nav, footer, .print\\:hidden { display: none !important; }
+            .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
+            .border { border-color: #eee !important; }
+            .bg-gray-50 { background: white !important; }
+         }
+      `}</style>
     </main>
   );
 }

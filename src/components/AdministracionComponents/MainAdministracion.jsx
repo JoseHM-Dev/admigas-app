@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../../supabaseClient";
 import { Titulo } from "../ui/Titulo";
 import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
+
+// Modales
 import ModalContrato from "../ui/Modales/ModalContrato";
 import ModalNuevoEdificio from "../ui/Modales/ModalNuevoEdificio";
 import ModalNuevaCarga from "../ui/Modales/ModalNuevaCarga";
@@ -13,25 +15,24 @@ import ModalFacturacion from "../ui/Modales/ModalFacturacion";
 import ModalGenerarFactura from "../ui/Modales/ModalGenerarFactura";
 
 export const MainAdministracion = () => {
+  // --- ESTADOS DE DATOS ---
   const [edificios, setEdificios] = useState([]);
+  const [selectedEdificio, setSelectedEdificio] = useState(null);
+  
+  // Datos del Edificio Seleccionado
   const [departamentos, setDepartamentos] = useState([]);
+  const [lecturas, setLecturas] = useState([]); // Lecturas del depto seleccionado
+  const [selectedDepartamento, setSelectedDepartamento] = useState(null);
   const [facturas, setFacturas] = useState([]);
   const [cargasEdificio, setCargasEdificio] = useState([]);
-  const [cargandoEdificios, setCargandoEdificios] = useState(false);
-  const [lecturas, setLecturas] = useState([]);
-  const [cargandoDepartamentos, setCargandoDepartamentos] = useState(false);
-  const [cargandoFacturas, setCargandoFacturas] = useState(false);
-  const [cargandoCargasEdificio, setCargandoCargasEdificio] = useState(false);
-  const [cargandoLecturas, setCargandoLecturas] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedEdificio, setSelectedEdificio] = useState(null);
-  const [selectedDepartamento, setSelectedDepartamento] = useState(null);
-  const [selectedFactura, setSelectedFactura] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchTermFacturas, setSearchTermFacturas] = useState("");
-  const [deptosConDeuda, setDeptosConDeuda] = useState(new Set());
 
-  // Estados para los modales
+  // Estados de Interfaz
+  const [activeTab, setActiveTab] = useState("deptos"); // deptos | facturas | cargas
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Estados Modales
   const [isContratoModalOpen, setIsContratoModalOpen] = useState(false);
   const [isEdificioModalOpen, setIsEdificioModalOpen] = useState(false);
   const [isCargaModalOpen, setIsCargaModalOpen] = useState(false);
@@ -39,83 +40,106 @@ export const MainAdministracion = () => {
   const [isLecturaModalOpen, setIsLecturaModalOpen] = useState(false);
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
   const [isFacturaModalOpen, setIsFacturaModalOpen] = useState(false);
-  const [isGenerarFacturaModalOpen, setIsGenerarFacturaModalOpen] =
-    useState(false);
+  const [isGenerarFacturaModalOpen, setIsGenerarFacturaModalOpen] = useState(false);
+  
+  // Estados para Edición
   const [lecturaParaEditar, setLecturaParaEditar] = useState(null);
   const [edificioParaEditar, setEdificioParaEditar] = useState(null);
   const [departamentoParaEditar, setDepartamentoParaEditar] = useState(null);
-
   const [nuevoContrato, setNuevoContrato] = useState(null);
+  const [selectedFactura, setSelectedFactura] = useState(null);
 
+  // --- 1. CARGA INICIAL DE EDIFICIOS ---
   const fetchEdificios = useCallback(async () => {
-    setCargandoEdificios(true);
-    setError(null);
-
-    try {
-      const { data, error: queryError } = await supabase
-        .from("edificio")
-        .select(
-          "id_edificio, responsable_nombre, calle, numero, colonia, delegacion, responsable_telefono, id_contrato, estado"
-        )
-        .eq("estado", true);
-
-      if (queryError) {
-        throw new Error(
-          queryError.message || "Error al obtener los edificios."
-        );
-      }
-
-      setEdificios(data || []);
-    } catch (err) {
-      setError(err.message);
-      setEdificios([]);
-    } finally {
-      setCargandoEdificios(false);
-    }
+    setLoading(true);
+    const { data } = await supabase.from("edificio").select("*").eq("estado", true).order("id_edificio");
+    setEdificios(data || []);
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    fetchEdificios();
-  }, [fetchEdificios]);
+  useEffect(() => { fetchEdificios(); }, [fetchEdificios]);
 
+  // --- 2. CARGA DE DATOS AL SELECCIONAR EDIFICIO ---
+  const handleSelectEdificio = async (edificio) => {
+    setSelectedEdificio(edificio);
+    setActiveTab("deptos");
+    setSelectedDepartamento(null);
+    setLoading(true);
+
+    // Cargar Deptos
+    const { data: deptos } = await supabase.from("departamento").select("*, edificio(*)").eq("id_edificio", edificio.id_edificio);
+    setDepartamentos(deptos || []);
+
+    // Cargar Cargas (Historial completo por ahora)
+    const { data: cargas } = await supabase.from("carga_edificio").select("*").eq("id_edificio", edificio.id_edificio).order("fecha_carga", {ascending: false});
+    setCargasEdificio(cargas || []);
+
+    setLoading(false);
+  };
+
+  // --- 3. CARGA DE FACTURAS POR MES ---
+  const fetchFacturasPorMes = useCallback(async () => {
+    if (!selectedEdificio || !monthFilter) return;
+    
+    setLoading(true);
+    // Obtener IDs deptos
+    const { data: deptos } = await supabase.from("departamento").select("id_departamento").eq("id_edificio", selectedEdificio.id_edificio);
+    const deptoIds = deptos?.map(d => d.id_departamento) || [];
+
+    if (deptoIds.length === 0) {
+        setFacturas([]); setLoading(false); return;
+    }
+
+    // Calcular rango de fechas del mes seleccionado
+    const [year, month] = monthFilter.split("-");
+    const startDate = `${year}-${month}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split("T")[0]; // Último día del mes
+
+    const { data: facs } = await supabase
+        .from("factura_departamento")
+        .select(`*, departamento(no_depto)`)
+        .in("departamento_id", deptoIds)
+        .gte("fecha_factura", startDate)
+        .lte("fecha_factura", endDate)
+        .order("fecha_factura", {ascending: false});
+    
+    setFacturas(facs || []);
+    setLoading(false);
+  }, [selectedEdificio, monthFilter]);
+
+  useEffect(() => {
+    if (activeTab === "facturas") {
+        fetchFacturasPorMes();
+    }
+  }, [activeTab, monthFilter, fetchFacturasPorMes]);
+
+  // --- 4. CARGA DE LECTURAS (Al seleccionar depto) ---
+  const handleSelectDepartamento = async (depto) => {
+      // Toggle selección
+      if (selectedDepartamento?.id_departamento === depto.id_departamento) {
+          setSelectedDepartamento(null);
+          setLecturas([]);
+      } else {
+          setSelectedDepartamento(depto);
+          const { data } = await supabase
+            .from("lectura")
+            .select("*")
+            .eq("id_departamento", depto.id_departamento)
+            .order("fecha_lectura", {ascending: false})
+            .limit(10);
+          setLecturas(data || []);
+      }
+  };
+
+  // --- HANDLERS FALTANTES (Corregidos) ---
+  
   const handleOpenGenerarFacturaModal = (depto) => {
     setSelectedDepartamento(depto);
     setIsGenerarFacturaModalOpen(true);
   };
 
-  const handleFacturaGenerada = () => {
-    setIsGenerarFacturaModalOpen(false);
-    if (selectedEdificio) {
-      fetchFacturas(selectedEdificio.id_edificio);
-    }
-  };
-
-  const handleCloseGenerarFacturaModal = () => {
-    setIsGenerarFacturaModalOpen(false);
-  };
-
-  const handleOpenNuevaLecturaModal = () => {
-    setLecturaParaEditar(null);
-    setIsLecturaModalOpen(true);
-  };
-
-  const handleOpenEditarLecturaModal = (lectura) => {
-    setLecturaParaEditar(lectura);
-    setIsLecturaModalOpen(true);
-  };
-
-  const handleLecturaGuardada = () => {
-    setIsLecturaModalOpen(false);
-    setLecturaParaEditar(null);
-    if (selectedDepartamento) {
-      fetchLecturas(selectedDepartamento.id_departamento);
-    }
-  };
-
   const handleInhabilitarEdificio = async (id_edificio) => {
-    if (
-      window.confirm("¿Está seguro de que desea inhabilitar este edificio?")
-    ) {
+    if (window.confirm("¿Está seguro de que desea inhabilitar este edificio?")) {
       try {
         const { error } = await supabase
           .from("edificio")
@@ -123,7 +147,11 @@ export const MainAdministracion = () => {
           .eq("id_edificio", id_edificio);
 
         if (error) throw error;
-
+        
+        // Si el edificio inhabilitado era el seleccionado, limpiamos la selección
+        if (selectedEdificio?.id_edificio === id_edificio) {
+            setSelectedEdificio(null);
+        }
         fetchEdificios();
       } catch (error) {
         alert("Error al inhabilitar el edificio: " + error.message);
@@ -131,903 +159,253 @@ export const MainAdministracion = () => {
     }
   };
 
-  const handleOpenEditarDepartamentoModal = (depto) => {
-    setDepartamentoParaEditar(depto);
-    setIsDepartamentoModalOpen(true);
+  const refreshData = () => {
+     if(selectedEdificio) handleSelectEdificio(selectedEdificio);
+     if(selectedDepartamento) handleSelectDepartamento(selectedDepartamento); // Refresca lecturas
+     if(activeTab === "facturas") fetchFacturasPorMes();
   };
 
-  // Handlers para el flujo de nuevo edificio
-  const handleOpenContratoModal = () => {
-    setIsContratoModalOpen(true);
-  };
-
-  const handleContratoSave = (contrato) => {
-    setNuevoContrato(contrato);
-    setIsContratoModalOpen(false);
-    setIsEdificioModalOpen(true);
-  };
-
-  const handleOpenEditarEdificioModal = (edificio) => {
-    setEdificioParaEditar(edificio);
-    setIsEdificioModalOpen(true);
-  };
-
-  const handleEdificioGuardado = () => {
-    fetchEdificios(); // Refresca la lista de edificios
-    setEdificioParaEditar(null);
-  };
-
-  // Handlers para el flujo de nueva carga
-  const handleOpenCargaModal = () => {
-    if (!selectedEdificio) {
-      alert("Por favor, seleccione un edificio de la lista.");
-      return;
-    }
-    setIsCargaModalOpen(true);
-  };
-
-  const handleCargaGuardada = () => {
-    setIsCargaModalOpen(false);
-    if (selectedEdificio) {
-      fetchFacturas(selectedEdificio.id_edificio);
-    }
-  };
-
-  // Handlers para el flujo de nuevo departamento
-  const handleOpenDepartamentoModal = () => {
-    setIsDepartamentoModalOpen(true);
-  };
-
-  const handleDepartamentoGuardado = () => {
-    setIsDepartamentoModalOpen(false);
-    if (selectedEdificio) {
-      fetchDepartamentos(selectedEdificio.id_edificio);
-    }
-    setDepartamentoParaEditar(null);
-  };
-
-  const handleOpenPagoModal = () => {
-    setIsPagoModalOpen(true);
-  };
-
-  const handlePagoGuardado = () => {
-    setIsPagoModalOpen(false);
-    if (selectedEdificio) {
-      fetchFacturas(selectedEdificio.id_edificio);
-    }
-  };
-
-  const fetchDepartamentos = async (id_edificio) => {
-    if (!id_edificio) {
-      setDepartamentos([]);
-      return;
-    }
-    setCargandoDepartamentos(true);
-    try {
-      const { data, error: queryError } = await supabase
-        .from("departamento")
-        .select(
-          "id_departamento, no_depto, titular_depto, telefono_depto, id_edificio, edificio(*)"
-        )
-        .eq("id_edificio", id_edificio);
-      if (queryError) throw new Error(queryError.message);
-      setDepartamentos(data || []);
-    } catch (err) {
-      setError(err.message);
-      setDepartamentos([]);
-    } finally {
-      setCargandoDepartamentos(false);
-    }
-  };
-
-  const fetchLecturas = async (id_departamento) => {
-    if (!id_departamento) {
-      setLecturas([]);
-      return;
-    }
-    setCargandoLecturas(true);
-    try {
-      const { data, error: queryError } = await supabase
-        .from("lectura")
-        .select("id_lectura, fecha_lectura, valor_lectura")
-        .eq("id_departamento", id_departamento)
-        .order("fecha_lectura", { ascending: false })
-        .limit(6);
-      if (queryError) throw new Error(queryError.message);
-      setLecturas(data || []);
-    } catch (err) {
-      setError(err.message);
-      setLecturas([]);
-    } finally {
-      setCargandoLecturas(false);
-    }
-  };
-
-  const fetchFacturas = async (id_edificio) => {
-    if (!id_edificio) {
-      setFacturas([]);
-      return;
-    }
-    setCargandoFacturas(true);
-    setError(null); // Clear previous errors
-
-    try {
-      // Step 1: Get department IDs for the building
-      const { data: deptosData, error: deptosError } = await supabase
-        .from("departamento")
-        .select("id_departamento")
-        .eq("id_edificio", id_edificio);
-
-      if (deptosError) {
-        throw new Error(
-          deptosError.message || "Error al obtener los departamentos."
-        );
-      }
-
-      const deptoIds = deptosData.map((d) => d.id_departamento);
-
-      if (deptoIds.length === 0) {
-        setFacturas([]);
-        setDeptosConDeuda(new Set());
-        return; // No departments, so no invoices
-      }
-
-      // Step 2: Get invoices for those department IDs
-      const { data, error: queryError } = await supabase
-        .from("factura_departamento")
-        .select(
-          `
-          id_factura, 
-          fecha_factura, 
-          monto, 
-          estado_pago, 
-          url,
-          departamento_id,
-          saldo_por_pagar,
-          consumo_lectura,
-          departamento ( no_depto )
-        `
-        )
-        .in("departamento_id", deptoIds);
-
-      if (queryError) {
-        throw new Error(queryError.message || "Error al obtener las facturas.");
-      }
-
-      const facturasData = data || [];
-      setFacturas(facturasData);
-
-      const deudores = new Set();
-      facturasData.forEach((factura) => {
-        if (!factura.estado_pago) {
-          deudores.add(factura.departamento_id);
-        }
-      });
-      setDeptosConDeuda(deudores);
-    } catch (err) {
-      setError(err.message);
-      setFacturas([]);
-    } finally {
-      setCargandoFacturas(false);
-    }
-  };
-
-  const handleEdificioClick = (edificio) => {
-    if (
-      selectedEdificio &&
-      selectedEdificio.id_edificio === edificio.id_edificio
-    ) {
-      setSelectedEdificio(null);
-      setSelectedDepartamento(null);
-      setDepartamentos([]);
-      setLecturas([]);
-      setDeptosConDeuda(new Set());
-    } else {
-      setSelectedEdificio(edificio);
-      setSelectedDepartamento(null);
-      setLecturas([]);
-      fetchDepartamentos(edificio.id_edificio);
-      fetchFacturas(edificio.id_edificio);
-      fetchCargasEdificio(edificio.id_edificio); // Llamada a la nueva función
-    }
-  };
-
-  const fetchCargasEdificio = async (id_edificio) => {
-    if (!id_edificio) {
-      setCargasEdificio([]);
-      return;
-    }
-    setCargandoCargasEdificio(true);
-    try {
-      const { data, error: queryError } = await supabase
-        .from("carga_edificio")
-        .select("fecha_carga, consumo_litros, monto_total")
-        .eq("id_edificio", id_edificio);
-
-      if (queryError) throw new Error(queryError.message);
-      setCargasEdificio(data || []);
-    } catch (err) {
-      setError(err.message);
-      setCargasEdificio([]);
-    } finally {
-      setCargandoCargasEdificio(false);
-    }
-  };
-
-  const handleDepartamentoClick = (departamento) => {
-    if (
-      selectedDepartamento &&
-      selectedDepartamento.id_departamento === departamento.id_departamento
-    ) {
-      setSelectedDepartamento(null);
-      setLecturas([]);
-    } else {
-      setSelectedDepartamento(departamento);
-      fetchLecturas(departamento.id_departamento);
-    }
-  };
-
-  const filteredEdificios = edificios.filter(
-    (edificio) =>
-      (edificio.responsable_nombre?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase()
-      ) ||
-      (edificio.calle?.toLowerCase() || "").includes(
-        searchTerm.toLowerCase()
-      ) ||
-      (edificio.colonia?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-  );
-
-  const filteredFacturas = facturas.filter((factura) => {
-    if (!searchTermFacturas) return true;
-    const fecha = new Date(factura.fecha_factura);
-    const mes = fecha
-      .toLocaleString("default", { month: "long" })
-      .toLowerCase();
-    return mes.includes(searchTermFacturas.toLowerCase());
-  });
+  // --- HELPERS VISUALES ---
+  const formatMoney = (amount) => Number(amount).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
   return (
-    <main>
-      <Titulo Texto="Administración" />
+    <main className="min-h-screen bg-gray-50 pb-20">
+      <div className="pt-6"><Titulo Texto="Panel de Administración" /></div>
 
-      <section className="m-auto max-w-7xl p-4">
-        <div className="flex flex-col items-center gap-2 bg-white shadow-2xl rounded-4xl p-4 md:flex-row md:justify-between md:items-center transition-all duration-200">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center">
-            <input
-              type="text"
-              placeholder="Buscar por responsable, calle, colonia..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="p-2 border bg-[#ad9ade] text-white border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:cursor-pointer hover:bg-white hover:text-black/70 transition-all duration-300 min-w-[230px]"
-            />
-          </div>
-          <div className="flex flex-col-reverse items-center gap-2 md:flex-row">
-            <Link
-              to="/dashboard"
-              className="flex bg-[#6432e4] text-white items-center gap-2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 hover:cursor-pointer"
-            >
-              <Icon icon="line-md:arrow-left-circle-twotone" width="24" />
-              Regresar
-            </Link>
-            <button
-              onClick={handleOpenContratoModal}
-              className="flex bg-[#6432e4] text-white items-center gap-2 p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 hover:cursor-pointer"
-            >
-              <Icon icon="solar:buildings-2-bold-duotone" width="24" />
-              Agregar Nuevo Edificio
-            </button>
-            <button
-              onClick={handleOpenCargaModal}
-              disabled={!selectedEdificio}
-              className="flex p-2 bg-[#6432e4] text-white items-center gap-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 hover:cursor-pointer disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              <Icon icon="line-md:clipboard-plus-twotone" width="24" />
-              Agregar Nueva Carga
-            </button>
-          </div>
+      <section className="m-auto max-w-7xl p-4 space-y-6">
+        
+        {/* --- TOP BAR: BUSCADOR Y ACCIONES GLOBALES --- */}
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+           <div className="relative w-full md:w-1/3">
+              <Icon icon="mdi:search" className="absolute left-3 top-3 text-gray-400" width="20"/>
+              <input 
+                 type="text" 
+                 placeholder="Buscar edificio..." 
+                 value={searchTerm}
+                 onChange={(e)=>setSearchTerm(e.target.value)}
+                 className="pl-10 pr-4 py-2 w-full bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+           </div>
+           <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              <Link to="/dashboard" className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-gray-200"><Icon icon="mdi:arrow-left"/> Dashboard</Link>
+              <button onClick={()=>setIsContratoModalOpen(true)} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-indigo-700 shadow-md shadow-indigo-200"><Icon icon="mdi:plus"/> Nuevo Edificio</button>
+           </div>
         </div>
 
-        <Titulo Texto="Lista de Edificios" />
-
-        <div className="overflow-x-auto shadow-lg rounded-lg">
-          <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-            <thead>
-              <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white ">
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                  ID
-                </th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                  Responsable
-                </th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                  Direccion
-                </th>
-
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                  Teléfono
-                </th>
-                <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                  Acción
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {cargandoEdificios ? (
-                <tr>
-                  <td
-                    colSpan="8"
-                    className="py-4 px-4 text-center text-gray-600"
-                  >
-                    Cargando...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td
-                    colSpan="8"
-                    className="py-4 px-4 text-center text-red-500"
-                  >
-                    Error: {error}
-                  </td>
-                </tr>
-              ) : filteredEdificios.length > 0 ? (
-                filteredEdificios.map((edificio) => (
-                  <tr
-                    key={edificio.id_edificio}
-                    onClick={() => handleEdificioClick(edificio)}
-                    className={`hover:bg-blue-50 transition-all duration-150 cursor-pointer ${
-                      selectedEdificio?.id_edificio === edificio.id_edificio
-                        ? "bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] text-white"
-                        : ""
-                    }`}
-                  >
-                    <td className="py-3 px-6 text-left text-sm text-gray-500">
-                      {edificio.id_edificio}
-                    </td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-800">
-                      {edificio.responsable_nombre}
-                    </td>
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-900">
-                      {edificio.calle} #{edificio.numero}, {edificio.colonia},{" "}
-                      {edificio.delegacion}
-                    </td>
-
-                    <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">
-                      {edificio.responsable_telefono}
-                    </td>
-                    <td className="py-2 px-4 text-center">
-                      <div className="flex justify-center space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditarEdificioModal(edificio);
-                          }}
-                          className=" text-green-600 hover:text-green-900 flex items-center gap-1 hover:cursor-pointer"
-                        >
-                          <Icon icon="line-md:edit-full-twotone" width="24" />
-                          Modificar
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleInhabilitarEdificio(edificio.id_edificio);
-                          }}
-                          className=" text-red-600 hover:text-red-900 flex items-center gap-1 hover:cursor-pointer"
-                        >
-                          <Icon icon="line-md:person-off-twotone" width="24" />
-                          Inhabilitar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="8"
-                    className="py-4 px-4 text-center text-gray-500"
-                  >
-                    No hay edificios registrados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {selectedEdificio && (
-          <section className="mt-8">
-            <div className="flex flex-col m-6 items-center gap-2 bg-white shadow-2xl rounded-4xl p-4 md:flex-row md:justify-start md:items-center transition-all duration-300">
-              <button
-                onClick={handleOpenDepartamentoModal}
-                className="flex p-2 border gap-4 m-3 font-bold bg-[#6432e4] text-white  border-black rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer"
-              >
-                <Icon icon="line-md:home-twotone" width="24" />
-                Agregar Departamento
-              </button>
-
-              <button
-                onClick={handleOpenNuevaLecturaModal}
-                disabled={!selectedDepartamento}
-                className="flex gap-4 p-2 border bg-[#6432e4] text-white  border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                <Icon icon="line-md:clipboard-check-twotone" width="24" />
-                Nueva Lectura
-              </button>
-            </div>
-
-            <h3 className="font-bold flex justify-center text-2xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-8 hover:scale-105 transition-all duration-200 animate-pulse">
-              Departamentos del Edificio: {selectedEdificio.calle} #
-              {selectedEdificio.numero}, {selectedEdificio.colonia}
-            </h3>
-            <div className="overflow-x-auto shadow-lg rounded-lg">
-              <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-                <thead>
-                  <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white ">
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      No. Depto
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Titular
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Teléfono
-                    </th>
-                    <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                      Acción
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cargandoDepartamentos ? (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-4 px-4 text-center text-gray-600"
-                      >
-                        Cargando...
-                      </td>
-                    </tr>
-                  ) : departamentos.length > 0 ? (
-                    departamentos.map((depto) => (
-                      <tr
-                        key={depto.id_departamento}
-                        onClick={() => handleDepartamentoClick(depto)}
-                        className={`transition-all duration-300 cursor-pointer 
-                          ${
-                            selectedDepartamento?.id_departamento ===
-                            depto.id_departamento
-                              ? "bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] text-white"
-                              : deptosConDeuda.has(depto.id_departamento)
-                              ? "bg-linear-to-r from-pink-500 via-red-500 to-yellow-500"
-                              : ""
-                          }
-                          hover:bg-blue-50 transition-all duration-150 hover:cursor-pointer
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+            
+            {/* --- SIDEBAR: LISTA DE EDIFICIOS --- */}
+            <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden sticky top-4">
+               <div className="p-4 bg-gray-50 border-b border-gray-100 font-bold text-gray-500 uppercase text-xs tracking-wider">
+                  Edificios Registrados ({edificios.length})
+               </div>
+               <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
+                  {edificios.filter(e => e.responsable_nombre.toLowerCase().includes(searchTerm.toLowerCase()) || e.calle.toLowerCase().includes(searchTerm.toLowerCase())).map(edificio => (
+                     <div 
+                        key={edificio.id_edificio}
+                        onClick={() => handleSelectEdificio(edificio)}
+                        className={`p-4 border-b border-gray-100 cursor-pointer transition-all hover:bg-indigo-50 group
+                           ${selectedEdificio?.id_edificio === edificio.id_edificio ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : ''}
                         `}
-                      >
-                        <td className="py-3 px-6 text-left text-sm text-gray-500">
-                          {depto.id_departamento}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-800">
-                          {depto.no_depto}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">
-                          {depto.titular_depto}
-                        </td>
-                        <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-700">
-                          {depto.telefono_depto}
-                        </td>
-                        <td className="py-2 px-4 text-center">
-                          <div className="flex justify-center space-x-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEditarDepartamentoModal(depto);
-                              }}
-                              className="bg-yellow-500 text-white flex items-center gap-2 px-3 py-1 rounded hover:bg-yellow-600 mr-2 hover:cursor-pointer hover:-translate-y-0.5 transition-all duration-150"
-                            >
-                              <Icon
-                                icon="line-md:edit-full-twotone"
-                                width="24"
-                              />
-                              Modificar
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenGenerarFacturaModal(depto);
-                              }}
-                              className="bg-green-500 text-white flex items-center gap-2 px-3 py-1 rounded hover:bg-green-600 hover:cursor-pointer hover:-translate-y-0.5 transition-all duration-150"
-                            >
-                              <Icon
-                                icon="line-md:document-report-twotone"
-                                width="24"
-                              />
-                              Factura
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="py-4 px-4 text-center text-gray-500"
-                      >
-                        No hay departamentos registrados para este edificio.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                     >
+                        <div className="flex justify-between items-start">
+                           <h4 className={`font-bold text-sm ${selectedEdificio?.id_edificio === edificio.id_edificio ? 'text-indigo-700' : 'text-gray-700'}`}>
+                              {edificio.calle} #{edificio.numero}
+                           </h4>
+                           <div className="flex gap-1">
+                               <button onClick={(e)=>{e.stopPropagation(); setEdificioParaEditar(edificio); setIsEdificioModalOpen(true);}} className="text-gray-300 hover:text-indigo-500 p-1"><Icon icon="mdi:pencil"/></button>
+                               <button onClick={(e)=>{e.stopPropagation(); handleInhabilitarEdificio(edificio.id_edificio);}} className="text-gray-300 hover:text-red-500 p-1"><Icon icon="mdi:delete"/></button>
+                           </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{edificio.colonia}</p>
+                        <div className="flex items-center gap-1 mt-2 text-[10px] text-gray-400 font-medium bg-gray-100 w-fit px-2 py-0.5 rounded-full">
+                           <Icon icon="mdi:account"/> {edificio.responsable_nombre.split(" ")[0]}
+                        </div>
+                     </div>
+                  ))}
+               </div>
             </div>
 
-            <div className="mt-8">
-              <h3 className="font-bold flex justify-center text-2xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-8 hover:scale-105 transition-all duration-200 animate-pulse">
-                Facturas del Edificio
-              </h3>
-              <div className="flex flex-col m-8  items-center gap-2 bg-white shadow-2xl rounded-4xl p-4 md:flex-row md:justify-between  md:items-center transition-all duration-200">
-                <input
-                  type="text"
-                  placeholder="Buscar por mes (e.g., 'noviembre')"
-                  value={searchTermFacturas}
-                  onChange={(e) => setSearchTermFacturas(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-[#6432e4] hover:text-white min-w-[230px]"
-                />
-                <button
-                  onClick={handleOpenPagoModal}
-                  disabled={!selectedFactura}
-                  className="flex gap-4 p-2 border bg-[#6432e4] text-white  border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  Nuevo Pago
-                </button>
-              </div>
-              <div className="overflow-x-auto shadow-lg rounded-lg">
-                <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-                  <thead>
-                    <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white ">
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        ID Factura
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        No. Depto
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Fecha
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Monto
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Saldo por Pagar
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Recibo
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cargandoFacturas ? (
-                      <tr>
-                        <td
-                          colSpan="7"
-                          className="py-4 px-4 text-center text-gray-600"
-                        >
-                          Cargando...
-                        </td>
-                      </tr>
-                    ) : filteredFacturas.length > 0 ? (
-                      filteredFacturas.map((factura) => (
-                        <tr
-                          key={factura.id_factura}
-                          onClick={() => setSelectedFactura(factura)}
-                          className={`hover:bg-blue-50 transition-all duration-150 hover:cursor-pointer ${
-                            selectedFactura?.id_factura === factura.id_factura
-                              ? "bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] text-white"
-                              : ""
-                          }`}
-                        >
-                          <td className="py-3 px-6 text-left text-sm ">
-                            {factura.id_factura}
-                          </td>
-                          <td className="py-2 px-4 text-center">
-                            {factura.departamento.no_depto}
-                          </td>
-                          <td className="py-3 px-6 text-center whitespace-nowrap text-sm ">
-                            {new Date(
-                              factura.fecha_factura
-                            ).toLocaleDateString()}
-                          </td>
-                          <td className="py-3 px-6 text-center whitespace-nowrap text-sm ">
-                            $ {factura.monto}
-                          </td>
-                          <td className="py-3 px-6 text-center whitespace-nowrap text-sm ">
-                            $ {factura.saldo_por_pagar}
-                          </td>
-                          <td className="py-2 px-4 text-center">
-                            <span
-                              className={`px-2 py-1 rounded-full text-white ${
-                                factura.estado_pago
-                                  ? "bg-green-500"
-                                  : "bg-red-500"
-                              }`}
-                            >
-                              {factura.estado_pago ? "Pagado" : "Pendiente"}
-                            </span>
-                          </td>
-                          <td className="py-2 px-4 text-center">
-                            <a
-                              href={factura.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className=" bg-linear-to-r from-blue-400 to-emerald-400 text-white px-3 py-1 rounded-3xl hover:cursor-pointer hover:scale-105 transition-all duration-150 inline-flex items-center gap-2"
-                            >
-                              <Icon
-                                icon="line-md:watch-twotone-loop"
-                                width="24"
-                              />
-                              Ver Recibo
-                            </a>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="7"
-                          className="py-4 px-4 text-center text-gray-500"
-                        >
-                          No hay facturas para mostrar.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            {/* --- MAIN CONTENT --- */}
+            <div className="lg:col-span-3 space-y-6">
+               {selectedEdificio ? (
+                  <>
+                     {/* HEADER EDIFICIO */}
+                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -mr-10 -mt-10 z-0"></div>
+                        <div className="relative z-10">
+                           <h2 className="text-2xl font-black text-gray-800">{selectedEdificio.calle} #{selectedEdificio.numero}</h2>
+                           <p className="text-gray-500 font-medium flex items-center gap-2">
+                              <Icon icon="mdi:map-marker" className="text-indigo-500"/> {selectedEdificio.colonia}, {selectedEdificio.delegacion}
+                           </p>
+                           <div className="flex flex-wrap gap-4 mt-6">
+                              <button onClick={()=>{if(!selectedEdificio) return; setIsCargaModalOpen(true);}} className="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-200 transition-colors">
+                                 <Icon icon="hugeicons:tanker-truck"/> Registrar Carga Gas
+                              </button>
+                              <button onClick={()=>{setIsDepartamentoModalOpen(true)}} className="px-4 py-2 bg-green-100 text-green-700 font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-green-200 transition-colors">
+                                 <Icon icon="mdi:home-plus"/> Nuevo Departamento
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+
+                     {/* TABS DE NAVEGACIÓN */}
+                     <div className="flex gap-1 border-b border-gray-200">
+                        <button onClick={()=>setActiveTab("deptos")} className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'deptos' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>Departamentos</button>
+                        <button onClick={()=>setActiveTab("facturas")} className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'facturas' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>Facturas</button>
+                        <button onClick={()=>setActiveTab("cargas")} className={`px-6 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'cargas' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>Historial Cargas</button>
+                     </div>
+
+                     {/* --- CONTENIDO TABS --- */}
+                     <div className="min-h-[400px]">
+                        
+                        {/* TAB 1: DEPARTAMENTOS */}
+                        {activeTab === "deptos" && (
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2">
+                              {departamentos.map(depto => (
+                                 <div key={depto.id_departamento} className={`bg-white rounded-xl border p-4 transition-all hover:shadow-md cursor-pointer ${selectedDepartamento?.id_departamento === depto.id_departamento ? 'border-indigo-500 ring-2 ring-indigo-500/10' : 'border-gray-200'}`} onClick={()=>handleSelectDepartamento(depto)}>
+                                    <div className="flex justify-between items-start mb-2">
+                                       <div className="bg-gray-100 text-gray-600 font-bold px-2 py-1 rounded text-xs uppercase">Depto {depto.no_depto}</div>
+                                       <div className="flex gap-1">
+                                          <button onClick={(e)=>{e.stopPropagation(); handleOpenGenerarFacturaModal(depto)}} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Generar Factura"><Icon icon="mdi:receipt-text-plus"/></button>
+                                          <button onClick={(e)=>{e.stopPropagation(); setDepartamentoParaEditar(depto); setIsDepartamentoModalOpen(true)}} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Icon icon="mdi:pencil"/></button>
+                                       </div>
+                                    </div>
+                                    <h4 className="font-bold text-gray-800">{depto.titular_depto}</h4>
+                                    <p className="text-xs text-gray-500">{depto.telefono_depto}</p>
+
+                                    {/* Subsección de Lecturas (Solo si está seleccionado) */}
+                                    {selectedDepartamento?.id_departamento === depto.id_departamento && (
+                                       <div className="mt-4 pt-4 border-t border-gray-100 bg-gray-50 -mx-4 -mb-4 p-4 rounded-b-xl">
+                                          <div className="flex justify-between items-center mb-3">
+                                             <h5 className="text-xs font-bold text-gray-500 uppercase">Últimas Lecturas</h5>
+                                             <button onClick={(e)=>{e.stopPropagation(); setLecturaParaEditar(null); setIsLecturaModalOpen(true)}} className="text-[10px] bg-indigo-600 text-white px-2 py-1 rounded font-bold hover:bg-indigo-700 flex items-center gap-1">
+                                                <Icon icon="mdi:plus"/> Nueva
+                                             </button>
+                                          </div>
+                                          <div className="space-y-2">
+                                             {lecturas.map(lec => (
+                                                <div key={lec.id_lectura} className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-200">
+                                                   <span className="text-gray-500 text-xs">{new Date(lec.fecha_lectura).toLocaleDateString()}</span>
+                                                   <span className="font-mono font-bold text-gray-800">{lec.valor_lectura} m³</span>
+                                                   <button onClick={(e)=>{e.stopPropagation(); setLecturaParaEditar(lec); setIsLecturaModalOpen(true)}} className="text-indigo-500 text-xs font-bold hover:underline">Editar</button>
+                                                </div>
+                                             ))}
+                                             {lecturas.length === 0 && <p className="text-xs text-gray-400 italic text-center py-2">Sin lecturas recientes.</p>}
+                                          </div>
+                                       </div>
+                                    )}
+                                 </div>
+                              ))}
+                           </div>
+                        )}
+
+                        {/* TAB 2: FACTURAS (POR MES) */}
+                        {activeTab === "facturas" && (
+                           <div className="animate-in fade-in slide-in-from-bottom-2">
+                              <div className="flex items-center gap-4 mb-6 bg-white p-3 rounded-xl border border-gray-200 w-fit">
+                                 <label className="text-xs font-bold text-gray-500 uppercase">Filtrar Mes:</label>
+                                 <input type="month" value={monthFilter} onChange={(e)=>setMonthFilter(e.target.value)} className="font-bold text-gray-700 outline-none cursor-pointer"/>
+                              </div>
+                              
+                              <div className="overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200">
+                                 <table className="w-full text-sm text-left">
+                                    <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[10px] border-b border-gray-200">
+                                       <tr>
+                                          <th className="px-4 py-3">Depto</th>
+                                          <th className="px-4 py-3">Fecha</th>
+                                          <th className="px-4 py-3 text-right">Monto</th>
+                                          <th className="px-4 py-3 text-right">Saldo</th>
+                                          <th className="px-4 py-3 text-center">Estado</th>
+                                          <th className="px-4 py-3 text-center">Acciones</th>
+                                       </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                       {facturas.map(factura => (
+                                          <tr key={factura.id_factura} className="hover:bg-indigo-50/30">
+                                             <td className="px-4 py-3 font-bold text-gray-700">{factura.departamento?.no_depto}</td>
+                                             <td className="px-4 py-3 text-xs text-gray-500">{new Date(factura.fecha_factura).toLocaleDateString()}</td>
+                                             <td className="px-4 py-3 text-right font-bold">{formatMoney(factura.monto)}</td>
+                                             <td className="px-4 py-3 text-right text-red-500 font-bold">{formatMoney(factura.saldo_por_pagar)}</td>
+                                             <td className="px-4 py-3 text-center">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${factura.estado_pago ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                   {factura.estado_pago ? 'Pagado' : 'Pendiente'}
+                                                </span>
+                                             </td>
+                                             <td className="px-4 py-3 flex justify-center gap-2">
+                                                <a href={factura.url} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-indigo-600"><Icon icon="mdi:file-pdf-box" width="20"/></a>
+                                                <button onClick={()=>{setSelectedFactura(factura); setIsPagoModalOpen(true)}} className="text-green-500 hover:text-green-700" title="Registrar Pago"><Icon icon="mdi:cash-plus" width="20"/></button>
+                                             </td>
+                                          </tr>
+                                       ))}
+                                       {facturas.length === 0 && (
+                                          <tr><td colSpan="6" className="p-8 text-center text-gray-400 italic">No se encontraron facturas en este mes.</td></tr>
+                                       )}
+                                    </tbody>
+                                 </table>
+                              </div>
+                           </div>
+                        )}
+
+                        {/* TAB 3: CARGAS */}
+                        {activeTab === "cargas" && (
+                           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-in fade-in">
+                              <table className="w-full text-sm text-left">
+                                 <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[10px] border-b border-gray-200">
+                                    <tr>
+                                       <th className="px-6 py-3">Fecha</th>
+                                       <th className="px-6 py-3 text-center">Litros Suministrados</th>
+                                       <th className="px-6 py-3 text-right">Costo Total</th>
+                                    </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-gray-100">
+                                    {cargasEdificio.map((carga, i) => (
+                                       <tr key={i} className="hover:bg-gray-50">
+                                          <td className="px-6 py-3 font-bold text-gray-700">{new Date(carga.fecha_carga).toLocaleDateString()}</td>
+                                          <td className="px-6 py-3 text-center text-blue-600 font-medium">{carga.consumo_litros} L</td>
+                                          <td className="px-6 py-3 text-right font-mono text-gray-800">{formatMoney(carga.monto_total)}</td>
+                                       </tr>
+                                    ))}
+                                    {cargasEdificio.length === 0 && (
+                                       <tr><td colSpan="3" className="p-8 text-center text-gray-400">Sin historial de cargas.</td></tr>
+                                    )}
+                                 </tbody>
+                              </table>
+                           </div>
+                        )}
+
+                     </div>
+                  </>
+               ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-3xl p-10 bg-gray-50/50">
+                     <Icon icon="solar:buildings-2-bold-duotone" width="64" className="mb-4 opacity-30"/>
+                     <p className="font-medium text-lg">Selecciona un edificio del listado</p>
+                     <p className="text-sm">Para ver departamentos, facturas y reportes.</p>
+                  </div>
+               )}
             </div>
+        </div>
 
-            {selectedDepartamento && (
-              <div className="mt-8">
-                <h3 className="font-bold flex justify-center text-2xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-8 hover:scale-105 transition-all duration-200 animate-pulse">
-                  Últimas 6 Lecturas del Departamento
-                </h3>
-                <div className="overflow-x-auto shadow-lg rounded-lg">
-                  <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-                    <thead>
-                      <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white ">
-                        <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                          ID Lectura
-                        </th>
-                        <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                          Fecha
-                        </th>
-                        <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                          Lectura
-                        </th>
-                        <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cargandoLecturas ? (
-                        <tr>
-                          <td
-                            colSpan="4"
-                            className="py-4 px-4 text-center text-gray-600"
-                          >
-                            Cargando...
-                          </td>
-                        </tr>
-                      ) : lecturas.length > 0 ? (
-                        lecturas
-                          .slice()
-                          .sort(
-                            (a, b) =>
-                              new Date(b.fecha_lectura) -
-                              new Date(a.fecha_lectura)
-                          )
-                          .map((lectura) => {
-                            const dateParts = lectura.fecha_lectura.split("-");
-                            const year = parseInt(dateParts[0], 10);
-                            const month = parseInt(dateParts[1], 10) - 1;
-                            const day = parseInt(dateParts[2], 10);
-                            const localDate = new Date(year, month, day);
+        {/* MODALES */}
+        <ModalContrato isOpen={isContratoModalOpen} onClose={()=>setIsContratoModalOpen(false)} onSave={(c)=>{setNuevoContrato(c); setIsContratoModalOpen(false); setIsEdificioModalOpen(true)}} />
+        <ModalNuevoEdificio isOpen={isEdificioModalOpen} onClose={()=>{setIsEdificioModalOpen(false); setEdificioParaEditar(null)}} contrato={nuevoContrato} onEdificioGuardado={()=>{fetchEdificios(); refreshData();}} edificio={edificioParaEditar} />
+        <ModalNuevaCarga isOpen={isCargaModalOpen} onClose={()=>setIsCargaModalOpen(false)} edificio={selectedEdificio} onCargaGuardada={refreshData} />
+        <ModalNuevoDepartamento isOpen={isDepartamentoModalOpen} onClose={()=>{setIsDepartamentoModalOpen(false); setDepartamentoParaEditar(null)}} edificio={selectedEdificio} onDepartamentoGuardado={refreshData} departamento={departamentoParaEditar} />
+        
+        {/* Aquí pasamos lecturaParaEditar al modal actualizado */}
+        <ModalNuevaLectura isOpen={isLecturaModalOpen} onClose={()=>setIsLecturaModalOpen(false)} departamento={selectedDepartamento} lectura={lecturaParaEditar} onLecturaGuardada={refreshData} />
+        
+        <ModalNuevoPagoEdificio isOpen={isPagoModalOpen} onClose={()=>setIsPagoModalOpen(false)} factura={selectedFactura} onPagoGuardado={refreshData} />
+        <ModalFacturacion onClose={()=>setIsFacturaModalOpen(false)} /> 
+        
+        <ModalGenerarFactura 
+            isOpen={isGenerarFacturaModalOpen} 
+            departamento={selectedDepartamento} 
+            onClose={()=>setIsGenerarFacturaModalOpen(false)} 
+            onFacturaGenerada={refreshData} 
+        />
 
-                            return (
-                              <tr
-                                key={lectura.id_lectura}
-                                className="hover:bg-blue-50 transition-all duration-150 hover:cursor-pointer"
-                              >
-                                <td className="py-3 px-6 text-left text-sm text-gray-500">
-                                  {lectura.id_lectura}
-                                </td>
-                                <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-800">
-                                  {localDate.toLocaleDateString("es-MX", {
-                                    year: "2-digit",
-                                    month: "2-digit",
-                                    day: "2-digit",
-                                  })}
-                                </td>
-                                <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-800">
-                                  {lectura.valor_lectura}
-                                </td>
-                                <td className="py-3 px-6 text-center whitespace-nowrap text-sm text-gray-800">
-                                  <div className="flex justify-center space-x-2 hover:text-white hover:-translate-y-0.5 transition-all duration-150 hover:cursor-pointer">
-                                    <button
-                                      onClick={() =>
-                                        handleOpenEditarLecturaModal(lectura)
-                                      }
-                                      className=" text-green-600 hover:text-green-900 flex items-center gap-1 hover:cursor-pointer"
-                                    >
-                                      <Icon
-                                        icon="line-md:edit-full-twotone"
-                                        width="24"
-                                      />
-                                      Modificar
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan="4"
-                            className="py-4 px-4 text-center text-gray-500"
-                          >
-                            No hay lecturas para este departamento.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-8">
-              <h3 className="font-bold flex justify-center text-2xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-8 hover:scale-105 transition-all duration-200 animate-pulse">
-                Historial de Cargas del Edificio
-              </h3>
-              <div className="overflow-x-auto shadow-lg rounded-lg">
-                <table className="min-w-full bg-black/10 border border-gray-500 overflow-hidden rounded-lg">
-                  <thead>
-                    <tr className="bg-linear-to-r from-blue-400 to-emerald-400 text-white ">
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Fecha de Carga
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Consumo (Litros)
-                      </th>
-                      <th className="py-3 px-6 text-center text-sm font-medium uppercase tracking-wider">
-                        Monto Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cargandoCargasEdificio ? (
-                      <tr>
-                        <td
-                          colSpan="3"
-                          className="py-4 px-4 text-center text-gray-600"
-                        >
-                          Cargando...
-                        </td>
-                      </tr>
-                    ) : cargasEdificio.length > 0 ? (
-                      cargasEdificio.map((carga, index) => (
-                        <tr
-                          key={`${carga.fecha_carga}-${index}`}
-                          className="hover:bg-black/50 hover:text-white transition-all duration-300"
-                        >
-                          <td className="py-2 px-4 text-center">
-                            {new Date(carga.fecha_carga).toLocaleDateString()}
-                          </td>
-                          <td className="py-2 px-4 text-center">
-                            {carga.consumo_litros}
-                          </td>
-                          <td className="py-2 px-4 text-center">
-                            $ {carga.monto_total}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="3"
-                          className="py-4 px-4 text-center text-gray-500"
-                        >
-                          No hay cargas registradas para este edificio.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
       </section>
-
-      {/* Renderizado de Modales */}
-
-      {isFacturaModalOpen && (
-        <ModalFacturacion
-          onClose={() => setIsFacturaModalOpen(false)}
-          departamento={selectedDepartamento}
-          edificio={selectedEdificio}
-          factura={selectedFactura}
-          onFacturaGenerada={handleFacturaGenerada}
-        />
-      )}
-
-      {isGenerarFacturaModalOpen && (
-        <ModalGenerarFactura
-          departamento={selectedDepartamento}
-          onClose={handleCloseGenerarFacturaModal}
-          onFacturaGenerada={handleFacturaGenerada}
-        />
-      )}
-
-      <ModalContrato
-        isOpen={isContratoModalOpen}
-        onClose={() => setIsContratoModalOpen(false)}
-        onSave={handleContratoSave}
-      />
-
-      <ModalNuevoEdificio
-        isOpen={isEdificioModalOpen}
-        onClose={() => {
-          setIsEdificioModalOpen(false);
-          setEdificioParaEditar(null);
-        }}
-        contrato={nuevoContrato}
-        onEdificioGuardado={handleEdificioGuardado}
-        edificio={edificioParaEditar}
-      />
-
-      <ModalNuevaCarga
-        isOpen={isCargaModalOpen}
-        onClose={() => setIsCargaModalOpen(false)}
-        edificio={selectedEdificio}
-        onCargaGuardada={handleCargaGuardada}
-      />
-
-      <ModalNuevoDepartamento
-        isOpen={isDepartamentoModalOpen}
-        onClose={() => {
-          setIsDepartamentoModalOpen(false);
-          setDepartamentoParaEditar(null);
-        }}
-        edificio={selectedEdificio}
-        onDepartamentoGuardado={handleDepartamentoGuardado}
-        departamento={departamentoParaEditar}
-      />
-
-      <ModalNuevaLectura
-        isOpen={isLecturaModalOpen}
-        onClose={() => setIsLecturaModalOpen(false)}
-        departamento={selectedDepartamento}
-        lectura={lecturaParaEditar}
-        onLecturaGuardada={handleLecturaGuardada}
-      />
-
-      <ModalNuevoPagoEdificio
-        isOpen={isPagoModalOpen}
-        onClose={() => setIsPagoModalOpen(false)}
-        factura={selectedFactura}
-        onPagoGuardado={handlePagoGuardado}
-      />
     </main>
   );
 };

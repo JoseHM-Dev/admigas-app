@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { pdf } from "@react-pdf/renderer"; // Importamos la función imperativa
+import { pdf } from "@react-pdf/renderer"; 
 import { supabase } from "../../../supabaseClient";
 import { useAuth } from "../../../auth/useAuth";
 import FacturaPDF from "../FacturaPDF";
 import { Icon } from "@iconify/react";
 
-const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
+// Agregamos 'isOpen' a las props para controlar el renderizado
+const ModalGenerarFactura = ({ isOpen, departamento, onClose, onFacturaGenerada }) => {
   const { user } = useAuth();
 
   // Estados de datos
@@ -23,12 +24,15 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
 
   // Estados UI
   const [loading, setLoading] = useState(true);
-  const [procesando, setProcesando] = useState(false); // Nuevo estado para el guardado
+  const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState(null);
   const [incluirFotoPerfil, setIncluirFotoPerfil] = useState(true);
 
-  // Carga inicial (igual que antes)
+  // Carga inicial
   useEffect(() => {
+    // Solo ejecutamos si el modal está abierto y hay departamento
+    if (!isOpen || !departamento) return;
+
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -65,7 +69,7 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
           .limit(2);
 
         if (!lecturas || lecturas.length < 2)
-          throw new Error("Se requieren al menos 2 lecturas.");
+          throw new Error("Se requieren al menos 2 lecturas para calcular el consumo.");
 
         setLecturasData({ actual: lecturas[0], anterior: lecturas[1] });
 
@@ -89,8 +93,12 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
       }
     };
 
-    if (departamento) fetchData();
-  }, [departamento]);
+    fetchData();
+  }, [departamento, isOpen]); // Dependencia agregada: isOpen
+
+  // --- CLÁUSULA DE GUARDIA (SOLUCIÓN AL ERROR) ---
+  // Si el modal no debe abrirse o no hay datos del departamento, no renderizamos nada.
+  if (!isOpen || !departamento) return null;
 
   // Cálculos lógicos
   const getCalculos = () => {
@@ -103,33 +111,28 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
     const adminVal = administracion ? parseFloat(administracion) : 0;
     const serviciosVal = servicios ? parseFloat(servicios) : 0;
 
-    // Monto Total del mes (Gas + Extras)
     const montoMes = importeGas + adminVal + serviciosVal;
-
-    // Total a Pagar (Mes + Deudas)
     const totalPagar = montoMes + deudaAnterior;
 
     return {
       consumo_lectura: consumo,
       importeGas: importeGas,
-      montoMes: montoMes, // Este irá a la columna 'monto'
+      montoMes: montoMes,
       deuda: deudaAnterior,
       administracion: adminVal,
       servicios: serviciosVal,
-      totalPagar: totalPagar, // Este irá a 'saldo_por_pagar'
+      totalPagar: totalPagar,
     };
   };
 
   const calculosFinales = getCalculos();
 
-  // --- FUNCIÓN PRINCIPAL: GENERAR PDF, SUBIR Y GUARDAR EN BD ---
   const handleGenerarYGuardar = async () => {
     if (!calculosFinales || !selectedCuenta) return;
     setProcesando(true);
     setError(null);
 
     try {
-      // 1. Generar el Blob del PDF en memoria
       const doc = (
         <FacturaPDF
           departamento={departamento}
@@ -145,15 +148,11 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
       );
       const blob = await pdf(doc).toBlob();
 
-      // 2. Definir nombre del archivo y ruta
-      const fileName = `factura_${
-        departamento.id_departamento
-      }_${Date.now()}.pdf`;
-      const filePath = `generadas/${fileName}`; // Carpeta 'generadas' dentro del bucket 'facturas'
+      const fileName = `factura_${departamento.id_departamento}_${Date.now()}.pdf`;
+      const filePath = `generadas/${fileName}`;
 
-      // 3. Subir a Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from("facturas") // Asegúrate que este bucket exista y sea público
+        .from("facturas")
         .upload(filePath, blob, {
           contentType: "application/pdf",
           upsert: false,
@@ -161,31 +160,28 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
 
       if (uploadError) throw uploadError;
 
-      // 4. Obtener URL Pública
       const {
         data: { publicUrl },
       } = supabase.storage.from("facturas").getPublicUrl(filePath);
 
-      // 5. Insertar datos en la tabla factura_departamento
       const { error: insertError } = await supabase
         .from("factura_departamento")
         .insert({
-          fecha_factura: new Date().toISOString(), // Fecha actual
+          fecha_factura: new Date().toISOString(),
           consumo_lectura: calculosFinales.consumo_lectura,
-          monto: calculosFinales.montoMes, // Monto total (gas+servicios)
-          saldo_por_pagar: calculosFinales.totalPagar, // Total a pagar (incluye deuda)
+          monto: calculosFinales.montoMes,
+          saldo_por_pagar: calculosFinales.totalPagar,
           url: publicUrl,
           lectura_id_fin: lecturasData.actual.id_lectura,
           departamento_id: departamento.id_departamento,
-          estado_pago: false, // Por defecto no pagado
+          estado_pago: false,
         });
 
       if (insertError) throw insertError;
 
-      // 6. Éxito: Notificar y Cerrar
       alert("Factura generada y guardada correctamente.");
-      if (onFacturaGenerada) onFacturaGenerada(); // Refrescar tablas padre
-      onClose(); // Cerrar modal
+      if (onFacturaGenerada) onFacturaGenerada();
+      onClose();
     } catch (err) {
       console.error("Error en el proceso:", err);
       setError("Error al procesar la factura: " + err.message);
@@ -203,9 +199,10 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
           <Icon icon="mdi:file-document-outline" className="text-purple-600" />
           Generar Factura
         </h2>
+        
+        {/* Aquí es donde ocurría el error. Ahora es seguro gracias al Guard Clause de arriba */}
         <p className="text-sm text-gray-500 mb-6">
-          {departamento.edificio.calle} #{departamento.edificio.numero} - Depto{" "}
-          {departamento.no_depto}
+          {departamento?.edificio?.calle} #{departamento?.edificio?.numero} - Depto {departamento?.no_depto}
         </p>
 
         {error && (
@@ -290,7 +287,6 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
               </label>
             </div>
 
-            {/* Resumen */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6 text-sm">
               <div className="flex justify-between mb-1">
                 <span className="text-gray-600">Importe Gas + Serv:</span>
@@ -312,7 +308,6 @@ const ModalGenerarFactura = ({ departamento, onClose, onFacturaGenerada }) => {
               </div>
             </div>
 
-            {/* Botones de Acción */}
             <div className="flex gap-3 pt-2">
               <button
                 onClick={onClose}
