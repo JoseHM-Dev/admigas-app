@@ -4,7 +4,7 @@ import { Titulo } from "../ui/Titulo";
 import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import ModalNuevaVenta from "../ui/Modales/ModalNuevaVenta";
-import { DailySummary } from "../ui/DailySummary"; // IMPORTAMOS EL RESUMEN
+import { DailySummary } from "../ui/DailySummary";
 
 export const MainVentas = () => {
   // Ajuste de fecha local para que el input date inicie en hoy
@@ -16,7 +16,7 @@ export const MainVentas = () => {
     today.toISOString().split("T")[0]
   );
   const [ventas, setVentas] = useState([]);
-  const [pagos, setPagos] = useState([]); // NUEVO: Estado para pagos del día
+  const [pagos, setPagos] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,7 +26,7 @@ export const MainVentas = () => {
     autotanque: [],
     carburacion: [],
   });
-  const [reporteCerrado, setReporteCerrado] = useState(false); // Para saber si el día ya se cerró
+  const [reporteCerrado, setReporteCerrado] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -42,8 +42,18 @@ export const MainVentas = () => {
     setPagos([]);
 
     try {
-      const fechaInicio = `${fechaSeleccionada}T00:00:00.000Z`;
-      const fechaFin = `${fechaSeleccionada}T23:59:59.999Z`;
+      // --- CORRECCIÓN DE ZONA HORARIA ---
+      // Creamos fechas locales explícitas y las convertimos a ISO para que Supabase compare correctamente
+      // sin importar si son las 8pm o 10pm.
+      const [year, month, day] = fechaSeleccionada.split("-").map(Number);
+
+      // Inicio del día (00:00:00 hora local) -> Convertido a UTC para la BD
+      const startLocal = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const fechaInicio = startLocal.toISOString();
+
+      // Fin del día (23:59:59 hora local) -> Convertido a UTC para la BD
+      const endLocal = new Date(year, month - 1, day, 23, 59, 59, 999);
+      const fechaFin = endLocal.toISOString();
 
       // A. OBTENER VENTAS (Lista detallada)
       const { data: ventasData, error: ventasError } = await supabase
@@ -74,22 +84,23 @@ export const MainVentas = () => {
         .lte("fecha_pago", fechaFin);
 
       if (pagosError) console.error("Error fetching pagos:", pagosError);
-      // Formatear pagos para que coincidan con la estructura que espera DailySummary
+
       const pagosFormateados = (pagosData || []).map((p) => ({
         ...p,
         nombre_cliente:
-          p.carga_casa?.casa_habitacion?.nombre_cliente || "Cliente",
+          p.carga_casa?.casa_habitacion?.nombre_cliente ||
+          "Cliente / Abono General",
         apellidos_cliente: "",
       }));
       setPagos(pagosFormateados);
 
-      // C. OBTENER DATOS DE TURNO (Para las fotos cuadradas y niveles)
+      // C. OBTENER DATOS DE TURNO
       const { data: turno, error: turnoError } = await supabase
         .from("porcentaje_diario")
         .select(
           `*, registrador_inicial:personal!registrador_id (nombre, apellidos)`
         )
-        .eq("fecha", fechaSeleccionada)
+        .eq("fecha", fechaSeleccionada) // 'fecha' suele ser columna tipo DATE, no afecta el TZ
         .order("id", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -98,7 +109,7 @@ export const MainVentas = () => {
         setTurnoData(turno);
       }
 
-      // D. VERIFICAR SI EL DÍA ESTÁ CERRADO EN REPORTE_DIARIO
+      // D. VERIFICAR SI EL DÍA ESTÁ CERRADO
       const { data: reporte } = await supabase
         .from("reporte_diario")
         .select("id")
@@ -344,8 +355,7 @@ export const MainVentas = () => {
               </div>
             )}
 
-            {/* --- 4. RESUMEN FINANCIERO (REEMPLAZADO POR DailySummary) --- */}
-            {/* Usamos -mx-4 en mobile para que el summary ocupe todo el ancho si es necesario, o lo dejamos normal */}
+            {/* --- 4. RESUMEN FINANCIERO (CON FIX ABONOS) --- */}
             <div className="mb-8">
               <DailySummary listaDiaria={ventas} pagosDiarios={pagos} />
             </div>
@@ -549,7 +559,6 @@ export const MainVentas = () => {
         onVentaGuardada={fetchData}
       />
 
-      {/* Estilos para impresión limpia */}
       <style>{`
          @media print {
             body { background: white; margin: 0; padding: 0; }
