@@ -129,7 +129,7 @@ export const MainClientes = () => {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20">
+    <main className="min-h-screen pb-20">
       <div className="pt-6">
         <Titulo Texto="Directorio de Clientes" />
       </div>

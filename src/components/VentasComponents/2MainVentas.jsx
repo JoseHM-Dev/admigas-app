@@ -35,27 +35,62 @@ export const MainVentas = () => {
     if (!fechaSeleccionada) return;
 
     setCargando(true);
-    setError(null);
+    // Limpiamos datos previos para evitar "parpadeos" de datos viejos
     setTurnoData(null);
-    setReporteCerrado(false);
-    setPlantData({ autotanque: [], carburacion: [] });
     setPagos([]);
+    setVentas([]);
+    setPlantData({ autotanque: [], carburacion: [] });
+    setReporteCerrado(false);
 
     try {
-      // --- CORRECCIÓN DE ZONA HORARIA ---
-      // Creamos fechas locales explícitas y las convertimos a ISO para que Supabase compare correctamente
-      // sin importar si son las 8pm o 10pm.
+      // 1. OBTENER EL TURNO (Primero buscamos esto para tener el ID)
+      const { data: turno, error: turnoError } = await supabase
+        .from("porcentaje_diario")
+        .select(
+          `*, registrador_inicial:personal!registrador_id (nombre, apellidos)`
+        )
+        .eq("fecha", fechaSeleccionada)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (turnoError) throw turnoError;
+
+      if (turno) {
+        setTurnoData(turno);
+
+        // 2. OBTENER PAGOS FILTRADOS POR EL ID DEL TURNO
+        // Solo traemos pagos si EXISTE un turno ese día y coinciden con el ID
+        const { data: pagosData, error: pagosError } = await supabase
+          .from("pagos")
+          .select(
+            `
+            id, monto_pago, tipo_pago, fecha_pago, id_turno,
+            carga_casa ( casa_habitacion ( nombre_cliente ) )
+          `
+          )
+          .eq("id_turno", turno.id); // <--- AQUÍ ESTÁ EL FILTRO MÁGICO
+
+        if (pagosError) console.error("Error fetching pagos:", pagosError);
+
+        const pagosFormateados = (pagosData || []).map((p) => ({
+          ...p,
+          nombre_cliente:
+            p.carga_casa?.casa_habitacion?.nombre_cliente ||
+            "Cliente / Abono General",
+        }));
+        setPagos(pagosFormateados);
+      } else {
+        // SI NO HAY TURNO ese día, no mostramos pagos (según tu requerimiento)
+        setPagos([]);
+      }
+
+      // 3. OBTENER VENTAS (CARGA CASA)
+      // Las ventas siguen siendo por rango de FECHA (independiente del turno, o puedes cambiarlas también si agregas id_turno a carga_casa)
       const [year, month, day] = fechaSeleccionada.split("-").map(Number);
-
-      // Inicio del día (00:00:00 hora local) -> Convertido a UTC para la BD
       const startLocal = new Date(year, month - 1, day, 0, 0, 0, 0);
-      const fechaInicio = startLocal.toISOString();
-
-      // Fin del día (23:59:59 hora local) -> Convertido a UTC para la BD
       const endLocal = new Date(year, month - 1, day, 23, 59, 59, 999);
-      const fechaFin = endLocal.toISOString();
 
-      // A. OBTENER VENTAS (Lista detallada)
       const { data: ventasData, error: ventasError } = await supabase
         .from("carga_casa")
         .select(
@@ -64,61 +99,21 @@ export const MainVentas = () => {
           casa_habitacion ( calle, numero, colonia )
         `
         )
-        .gte("fecha_carga", fechaInicio)
-        .lte("fecha_carga", fechaFin)
+        .gte("fecha_carga", startLocal.toISOString())
+        .lte("fecha_carga", endLocal.toISOString())
         .order("fecha_carga", { ascending: false });
 
       if (ventasError) throw ventasError;
       setVentas(ventasData || []);
 
-      // B. OBTENER PAGOS (Para el resumen financiero exacto)
-      const { data: pagosData, error: pagosError } = await supabase
-        .from("pagos")
-        .select(
-          `
-          id, monto_pago, tipo_pago, fecha_pago,
-          carga_casa ( casa_habitacion ( nombre_cliente ) )
-        `
-        )
-        .gte("fecha_pago", fechaInicio)
-        .lte("fecha_pago", fechaFin);
-
-      if (pagosError) console.error("Error fetching pagos:", pagosError);
-
-      const pagosFormateados = (pagosData || []).map((p) => ({
-        ...p,
-        nombre_cliente:
-          p.carga_casa?.casa_habitacion?.nombre_cliente ||
-          "Cliente / Abono General",
-        apellidos_cliente: "",
-      }));
-      setPagos(pagosFormateados);
-
-      // C. OBTENER DATOS DE TURNO
-      const { data: turno, error: turnoError } = await supabase
-        .from("porcentaje_diario")
-        .select(
-          `*, registrador_inicial:personal!registrador_id (nombre, apellidos)`
-        )
-        .eq("fecha", fechaSeleccionada) // 'fecha' suele ser columna tipo DATE, no afecta el TZ
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!turnoError && turno) {
-        setTurnoData(turno);
-      }
-
-      // D. VERIFICAR SI EL DÍA ESTÁ CERRADO
+      // 4. VERIFICAR REPORTE CERRADO Y PLANTA (Igual que antes)
       const { data: reporte } = await supabase
         .from("reporte_diario")
         .select("id")
         .eq("fecha", fechaSeleccionada)
         .maybeSingle();
-
       if (reporte) setReporteCerrado(true);
 
-      // E. OBTENER ACTIVIDADES DE PLANTA
       const { data: autoData } = await supabase
         .from("carga_autotanque")
         .select("*")
@@ -128,13 +123,10 @@ export const MainVentas = () => {
         .select("*")
         .eq("fecha", fechaSeleccionada);
 
-      setPlantData({
-        autotanque: autoData || [],
-        carburacion: carbData || [],
-      });
+      setPlantData({ autotanque: autoData || [], carburacion: carbData || [] });
     } catch (err) {
       console.error(err);
-      setError("Error cargando la información del día.");
+      // setError("Error cargando la información.");
     } finally {
       setCargando(false);
     }
@@ -164,7 +156,7 @@ export const MainVentas = () => {
   };
 
   return (
-    <main className="pb-20 bg-gray-50 min-h-screen">
+    <main className="pb-20 min-h-screen">
       <div className="print:hidden">
         <Titulo Texto="Historial y Reportes" />
       </div>

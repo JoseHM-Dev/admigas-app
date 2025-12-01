@@ -150,7 +150,7 @@ export const MainAjustes = () => {
 };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen pb-20">
       
       {/* HEADER */}
       <div className="bg-white shadow-sm border-b border-gray-200 p-4 sticky top-0 z-10">

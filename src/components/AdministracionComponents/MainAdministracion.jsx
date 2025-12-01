@@ -169,7 +169,7 @@ export const MainAdministracion = () => {
   const formatMoney = (amount) => Number(amount).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20">
+    <main className="min-h-screen pb-20">
       <div className="pt-6"><Titulo Texto="Panel de Administración" /></div>
 
       <section className="m-auto max-w-7xl p-4 space-y-6">
