@@ -10,8 +10,13 @@ import { Administracion } from "./pages/Administracion";
 import { Ajustes } from "./pages/Ajustes";
 import FacturaPage from "./pages/FacturaPage";
 import { useEffect } from "react";
+
+// --- IMPORTS DE CAPACITOR ---
 import { SplashScreen } from "@capacitor/splash-screen";
 import { App as CapacitorApp } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
+// OJO: Este es el import correcto del nuevo paquete
+import { NavigationBar } from "@hugotomazi/capacitor-navigation-bar";
 
 function App() {
   const { session } = useAuth();
@@ -20,27 +25,40 @@ function App() {
     const ocultarSplash = async () => {
       await SplashScreen.hide();
     };
-    ocultarSplash();
 
-    // --- CORRECCIÓN DEL BOTÓN ATRÁS ---
+    // 2. CONFIGURAR COLORES DE BARRAS (Gris)
+    const configurarBarras = async () => {
+      try {
+        const colorGris = "#a9a9a9";
+
+        // Barra de Estado (Arriba) - Plugin Oficial
+        await StatusBar.setStyle({ style: Style.Light });
+        await StatusBar.setBackgroundColor({ color: colorGris });
+
+        // Barra de Navegación (Abajo) - Plugin @hugotomazi
+        // Este plugin usa 'setColor'
+        await NavigationBar.setColor({ color: colorGris });
+      } catch (error) {
+        console.log(
+          "Configuración de barras omitida (no nativo o error de plugin):",
+          error
+        );
+      }
+    };
+
+    ocultarSplash();
+    configurarBarras();
+
+    // 3. Lógica del Botón Atrás
     const setupBackButton = async () => {
       CapacitorApp.addListener("backButton", () => {
-        // 1. Al usar HashRouter, la ruta está en el 'hash', no en el 'pathname'
-        // window.location.hash devuelve algo como "#/dashboard"
         const hash = window.location.hash;
-
-        // 2. Quitamos el símbolo "#" para obtener "/dashboard"
         const rutaActual = hash.replace("#", "");
-
-        // 3. Definimos dónde queremos que la app se cierre
-        // Agregué '/login' para que si están en login no regresen al Home vacío
         const rutasPrincipales = ["/", "/dashboard", "/login"];
 
         if (!rutasPrincipales.includes(rutaActual)) {
-          // Si NO es ruta principal, regresamos en el historial
           window.history.back();
         } else {
-          // Si ES ruta principal, cerramos la app
           CapacitorApp.exitApp();
         }
       });
@@ -49,8 +67,6 @@ function App() {
     setupBackButton();
 
     return () => {
-      // Es más seguro remover solo el listener específico,
-      // pero removeAllListeners funciona para este caso.
       CapacitorApp.removeAllListeners();
     };
   }, []);
