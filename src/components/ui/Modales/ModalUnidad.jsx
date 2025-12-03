@@ -4,7 +4,7 @@ import { useAuth } from "../../../auth/useAuth";
 import { Icon } from "@iconify/react"; // Importamos iconos
 
 const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
-  const { personal } = useAuth();
+  const { personal, appUser } = useAuth();
   const [formData, setFormData] = useState({
     empresa: "",
     num_unidad: "",
@@ -75,9 +75,11 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
           .eq("id", unidadData.id);
         errorResult = error;
       } else {
-        const { error } = await supabase
-          .from("unidad")
-          .insert({ ...datosParaEnviar, personal_id: personal.id });
+        const { error } = await supabase.from("unidad").insert({
+          ...datosParaEnviar,
+          app_users_id: appUser.id,
+          personal_id: personal ? personal.id : null,
+        });
         errorResult = error;
       }
 

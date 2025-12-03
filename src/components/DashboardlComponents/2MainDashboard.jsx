@@ -666,6 +666,10 @@ export const MainDashboard = () => {
         onClose={() => setIsModalVentaOpen(false)}
         venta={selectedVenta}
         onVentaGuardada={refreshData}
+        tarifa={tarifa} // <--- Esto arreglará el precio en 0
+        unidad={unidad} // Necesario para el Ticket
+        datosBancarios={datosBancarios} // Necesario para el Ticket
+        user={appUser} // Necesario si usas datos del usuario
       />
       <ModalNuevoDia
         isOpen={isModalNuevoDiaOpen}

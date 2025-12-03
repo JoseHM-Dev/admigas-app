@@ -11,7 +11,7 @@ import ModalBanco from "../ui/Modales/ModalBanco";
 import ModalTarifa from "../ui/Modales/ModalTarifa"; // Asegúrate de importar este
 
 export const MainAjustes = () => {
-  const { user, fetchUserData } = useAuth();
+  const { user, appUser, fetchUserData } = useAuth();
   
   // Estados de Imagen
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -46,16 +46,18 @@ export const MainAjustes = () => {
 
   // --- 1. LÓGICA DE TARIFAS ---
   const fetchLatestTarifas = useCallback(async () => {
+    if (!appUser?.id) return; // No hacer nada si no hay usuario
     const { data, error } = await supabase
       .from("tarifa")
       .select("precio_litro, precio_m3, fecha_vigente")
+      .eq("app_users_id", appUser.id) // FILTRO DE SEGURIDAD
       .order("id_tarifa", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error) console.error("Error fetching tarifas:", error);
     if (data) setCurrentTarifas(data);
-  }, []);
+  }, [appUser]);
 
   useEffect(() => {
     fetchLatestTarifas();
@@ -102,7 +104,9 @@ export const MainAjustes = () => {
   };
 
   // --- 3. LÓGICA DE TABLAS (Unificada) ---
-  const fetchData = async (type) => {
+  const fetchData = useCallback(async (type) => {
+    if (!appUser?.id) return; // No hacer nada si no hay usuario
+
     setLoadingData(true);
     let tableName = "";
     let orderCol = "id";
@@ -114,6 +118,7 @@ export const MainAjustes = () => {
     const { data, error } = await supabase
       .from(tableName)
       .select("*")
+      .eq("app_users_id", appUser.id) // FILTRO DE SEGURIDAD
       .order(orderCol, { ascending: true });
 
     if (!error) {
@@ -122,7 +127,7 @@ export const MainAjustes = () => {
       if (type === 'banco') setBancoList(data);
     }
     setLoadingData(false);
-  };
+  }, [appUser]);
 
   const handleToggleTab = (tab) => {
     if (activeTab === tab) {

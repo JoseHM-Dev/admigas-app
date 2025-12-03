@@ -5,8 +5,10 @@ import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import ModalNuevaVenta from "../ui/Modales/ModalNuevaVenta";
 import { DailySummary } from "../ui/DailySummary";
+import { useAuth } from "../../auth/useAuth";
 
 export const MainVentas = () => {
+  const { user, tarifa, personal, unidad, datosBancarios } = useAuth();
   // Ajuste de fecha local para que el input date inicie en hoy
   const today = new Date();
   const offset = today.getTimezoneOffset();
@@ -549,6 +551,11 @@ export const MainVentas = () => {
         onClose={() => setIsModalOpen(false)}
         venta={null}
         onVentaGuardada={fetchData}
+        user={user}
+        tarifa={tarifa}
+        personal={personal}
+        unidad={unidad}
+        datosBancarios={datosBancarios}
       />
 
       <style>{`

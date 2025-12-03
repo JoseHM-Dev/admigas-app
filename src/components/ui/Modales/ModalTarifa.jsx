@@ -11,7 +11,7 @@ import es from 'date-fns/locale/es';
 registerLocale('es', es);
 
 const ModalTarifa = ({ isOpen, onClose, onSave }) => {
-  const { personal } = useAuth();
+  const { personal, appUser } = useAuth();
   
   // Usamos un objeto único para el estado, igual que en los otros modales
   const [formData, setFormData] = useState({
@@ -84,7 +84,8 @@ const ModalTarifa = ({ isOpen, onClose, onSave }) => {
           fecha_vigente: formData.fecha_vigente,
           precio_litro: formData.precio_litro,
           precio_m3: formData.precio_m3,
-          personal_id: personal.id,
+          app_users_id: appUser.id,
+          personal_id: personal ? personal.id : null,
         },
       ]);
 

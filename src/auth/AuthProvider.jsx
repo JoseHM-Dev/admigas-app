@@ -25,6 +25,31 @@ export const AuthProvider = ({ children }) => {
       setAppUser(appUserData);
 
       if (appUserData && !appUserError) {
+        // --- 1. DATOS DE LA EMPRESA (Ligados al app_user) ---
+        const { data: unidadData } = await supabase
+          .from("unidad")
+          .select("*")
+          .eq("app_users_id", appUserData.id)
+          .maybeSingle();
+        setUnidad(unidadData);
+
+        const { data: datosBancariosData } = await supabase
+          .from("datos_bancarios")
+          .select("*")
+          .eq("app_users_id", appUserData.id)
+          .maybeSingle();
+        setDatosBancarios(datosBancariosData);
+
+        const { data: tarifaData } = await supabase
+          .from("tarifa")
+          .select("*")
+          .eq("app_users_id", appUserData.id)
+          .order("id_tarifa", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setTarifa(tarifaData);
+
+        // --- 2. DATOS DEL EMPLEADO (Puede no existir) ---
         const { data: personalData } = await supabase
           .from("personal")
           .select("*")
@@ -32,31 +57,7 @@ export const AuthProvider = ({ children }) => {
           .limit(1)
           .maybeSingle();
         setPersonal(personalData);
-
-        if (personalData) {
-          const { data: unidadData } = await supabase
-            .from("unidad")
-            .select("*")
-            .eq("personal_id", personalData.id)
-            .maybeSingle();
-          setUnidad(unidadData);
-
-          const { data: datosBancariosData } = await supabase
-            .from("datos_bancarios")
-            .select("*")
-            .eq("personal_id", personalData.id)
-            .maybeSingle();
-          setDatosBancarios(datosBancariosData);
-
-          const { data: tarifaData } = await supabase
-            .from("tarifa")
-            .select("*")
-            .eq("personal_id", personalData.id)
-            .order("id_tarifa", { ascending: false }) // Importante: Ordena para tomar el último creado
-            .limit(1) // Vital: Obliga a traer SOLO UNO, ignorando duplicados
-            .maybeSingle();
-          setTarifa(tarifaData);
-        }
+        
       } else {
         setPersonal(null);
         setUnidad(null);
@@ -122,8 +123,8 @@ export const AuthProvider = ({ children }) => {
     fetchUserData: () => fetchUserData(session),
   };
 
-  // Muestra un loader mientras se verifica la sesión
-  if (loading) {
+  // Muestra un loader mientras se verifica la sesión o se cargan los datos del personal
+  if (loading || (session && loadingPersonal)) {
     return <div>Cargando...</div>;
   }
 

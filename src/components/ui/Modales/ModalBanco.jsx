@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 import { useAuth } from "../../../auth/useAuth";
 
 const ModalBanco = ({ isOpen, onClose, bancoData, onSave }) => {
-  const { personal } = useAuth();
+  const { personal, appUser } = useAuth();
 
   const [formData, setFormData] = useState({
     nom_responsable: "",
@@ -83,7 +83,11 @@ const ModalBanco = ({ isOpen, onClose, bancoData, onSave }) => {
       } else {
         const { error: insertError } = await supabase
           .from("datos_bancarios")
-          .insert({ ...datosParaEnviar, personal_id: personal.id });
+          .insert({
+            ...datosParaEnviar,
+            app_users_id: appUser.id,
+            personal_id: personal ? personal.id : null,
+          });
         if (insertError) throw insertError;
       }
 

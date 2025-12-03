@@ -12,6 +12,7 @@ import FacturaPage from "./pages/FacturaPage";
 import { useEffect } from "react";
 
 // --- IMPORTS DE CAPACITOR ---
+import { Capacitor } from "@capacitor/core";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { App as CapacitorApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -23,12 +24,15 @@ function App() {
 
   useEffect(() => {
     const ocultarSplash = async () => {
-      await SplashScreen.hide();
+      // Solo en nativo, para evitar errores en web
+      if (Capacitor.isNativePlatform()) {
+        await SplashScreen.hide();
+      }
     };
 
     // 2. CONFIGURAR COLORES DE BARRAS (Gris)
     const configurarBarras = async () => {
-      try {
+      if (Capacitor.isNativePlatform()) {
         const colorGris = "#a9a9a9";
 
         // Barra de Estado (Arriba) - Plugin Oficial
@@ -38,11 +42,6 @@ function App() {
         // Barra de Navegación (Abajo) - Plugin @hugotomazi
         // Este plugin usa 'setColor'
         await NavigationBar.setColor({ color: colorGris });
-      } catch (error) {
-        console.log(
-          "Configuración de barras omitida (no nativo o error de plugin):",
-          error
-        );
       }
     };
 

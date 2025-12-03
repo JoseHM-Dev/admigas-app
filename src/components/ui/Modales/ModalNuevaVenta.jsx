@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../../supabaseClient";
-import { useAuth } from "../../../auth/useAuth";
 import { Icon } from "@iconify/react";
 import html2canvas from "html2canvas";
 import ModalNuevoCliente from "./ModalNuevoCliente";
@@ -18,9 +17,11 @@ export default function ModalNuevaVenta({
   onClose,
   onVentaGuardada,
   venta,
+  user,
+  tarifa,
+  unidad,
+  datosBancarios: bancoContexto,
 }) {
-  const { user, tarifa, unidad, datosBancarios: bancoContexto } = useAuth();
-
   // REFS
   const searchInputRef = useRef(null); // Referencia para el input de búsqueda
   const ticketRef = useRef(null);
@@ -117,12 +118,20 @@ export default function ModalNuevaVenta({
 
   useEffect(() => {
     if (isOpen) {
-      // Cargar Tarifa, Unidad y Bancos Globales
-      if (tarifa) setPrecioVigente(tarifa.precio_litro);
-      else setPrecioVigente(0);
+      // 1. Intentar obtener el precio del objeto tarifa
+      if (tarifa && tarifa.precio_litro) {
+        // IMPORTANTE: Forzamos la conversión a flotante (parseFloat)
+        // por si la base de datos lo devuelve como texto "12.50"
+        const precioNumerico = parseFloat(tarifa.precio_litro);
+        setPrecioVigente(precioNumerico);
+        
+      } else {
+        // Si no hay tarifa, ponemos 0
+        setPrecioVigente(0);
+      }
 
+      // Cargar otros datos
       if (unidad) setDatosUnidad(unidad);
-
       if (bancoContexto) setDatosBancarios([bancoContexto]);
       else setDatosBancarios([]);
     }
@@ -518,8 +527,11 @@ export default function ModalNuevaVenta({
                     </div>
                     <input
                       type="text"
+                      // CORRECCIÓN AQUÍ: Usamos Number() para evitar error si precioVigente es string
                       value={
-                        precioVigente ? `$ ${precioVigente.toFixed(2)}` : "N/A"
+                        precioVigente !== null && precioVigente !== undefined
+                          ? `$ ${Number(precioVigente).toFixed(2)}`
+                          : "$ 0.00"
                       }
                       disabled
                       className="block w-full pl-10 pr-3 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-600 font-medium"
