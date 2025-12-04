@@ -125,7 +125,8 @@ export const MainDashboard = () => {
           )
         `
         )
-        .eq("id_porcentaje", activeTurnoId);
+        // CORRECCIÓN AQUÍ: Usar "id_turno" en lugar de "id_porcentaje"
+        .eq("id_turno", activeTurnoId); 
 
       if (error) {
         console.error("Error fetching pagos diarios:", error);
@@ -133,8 +134,8 @@ export const MainDashboard = () => {
       } else {
         const pagosFormateados = data.map((p) => ({
           ...p,
-          nombre_cliente:
-            p.carga_casa?.casa_habitacion?.nombre_cliente || "Cliente",
+          // Si es un abono de crédito, no tiene carga_casa, así que mostramos "Abono a Crédito"
+          nombre_cliente: p.carga_casa?.casa_habitacion?.nombre_cliente || "Abono a Crédito",
           apellidos_cliente: "",
         }));
         setPagosDiarios(pagosFormateados);
@@ -368,7 +369,7 @@ export const MainDashboard = () => {
 
       {/* --- SECCIÓN LISTA DIARIA --- */}
       <section className="m-auto max-w-5xl p-4">
-        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-gradient-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-3 transition-all duration-200 animate-pulse">
+        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-3 transition-all duration-200 animate-pulse">
           Lista Diaria de Ventas
         </h2>
 
@@ -533,7 +534,7 @@ export const MainDashboard = () => {
 
       {/* ... SECCIÓN AGENDA (Sin cambios significativos, se mantiene igual) ... */}
       <section className="m-auto max-w-5xl p-4 mb-10">
-        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-gradient-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-3 transition-all duration-200 animate-pulse">
+        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-3 transition-all duration-200 animate-pulse">
           Agenda de Cargas
         </h2>
         {/* ... Resto del código de agenda ... */}
@@ -543,7 +544,7 @@ export const MainDashboard = () => {
               setSelectedAgendaItem(null);
               setIsModalAgendaOpen(true);
             }}
-            className="flex items-center gap-2 py-3 px-6 bg-[#6432e4] text-white rounded-full shadow-lg hover:shadow-xl hover:bg-gradient-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:-translate-y-1 transition-all duration-200 cursor-pointer font-bold"
+            className="flex items-center gap-2 py-3 px-6 bg-[#6432e4] text-white rounded-full shadow-lg hover:shadow-xl hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:-translate-y-1 transition-all duration-200 cursor-pointer font-bold"
           >
             <Icon icon="mdi:calendar-plus" width="24" /> Agendar Nuevo Cliente
           </button>
@@ -596,7 +597,7 @@ export const MainDashboard = () => {
                     <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded-md flex items-start gap-2">
                       <Icon
                         icon="mdi:home-map-marker"
-                        className="mt-0.5 text-gray-400 min-w-[16px]"
+                        className="mt-0.5 text-gray-400 min-w-4"
                       />
                       <span>
                         {item.casa_habitacion.calle} #
@@ -607,7 +608,7 @@ export const MainDashboard = () => {
                       <p className="text-sm text-orange-600 bg-orange-50 p-2 rounded-md flex items-start gap-2 italic border border-orange-100">
                         <Icon
                           icon="mdi:comment-text-outline"
-                          className="mt-0.5 min-w-[16px]"
+                          className="mt-0.5 min-w-4"
                         />
                         <span>"{item.comentario}"</span>
                       </p>
@@ -670,6 +671,7 @@ export const MainDashboard = () => {
         unidad={unidad} // Necesario para el Ticket
         datosBancarios={datosBancarios} // Necesario para el Ticket
         user={appUser} // Necesario si usas datos del usuario
+        idTurnoExterno={activeTurnoId}
       />
       <ModalNuevoDia
         isOpen={isModalNuevoDiaOpen}
@@ -687,6 +689,7 @@ export const MainDashboard = () => {
         listaDiaria={listaDiaria}
         pagosDiarios={pagosDiarios}
         unidad={unidad}
+        idTurno={activeTurnoId} // <--- AGREGADO: Pasamos el ID exacto
       />
 
       {/* FinDiaCompleto es independiente ahora */}
@@ -698,6 +701,7 @@ export const MainDashboard = () => {
         listaDiaria={listaDiaria}
         pagosDiarios={pagosDiarios}
         unidad={unidad}
+        idTurno={activeTurnoId} // <--- AGREGADO: Pasamos el ID exacto
       />
 
       <ModalAgendarCliente

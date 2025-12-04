@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../../supabaseClient";
 import { useAuth } from "../../../auth/useAuth";
-import { Icon } from "@iconify/react"; // Importamos iconos
+import { Icon } from "@iconify/react"; 
 
 const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
   const { personal, appUser } = useAuth();
@@ -57,7 +57,6 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
     setError("");
     setIsSubmitting(true);
 
-    // Sanear datos: convertir "" a null
     const datosParaEnviar = { ...formData };
     Object.keys(datosParaEnviar).forEach((key) => {
       if (datosParaEnviar[key] === "") {
@@ -98,12 +97,13 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    // Fondo oscuro con efecto borroso (Glassmorphism simple)
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-sm p-4 transition-all duration-300">
-      {/* Contenedor Principal con animación de entrada */}
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
-        {/* Encabezado con Gradiente */}
-        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center">
+      
+      {/* CAMBIOS AQUÍ: flex flex-col y max-h-[90vh] */}
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+        
+        {/* Header (shrink-0 para que no se aplaste) */}
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
               <Icon
@@ -111,7 +111,7 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
                 className="text-white w-8 h-8"
               />
             </div>
-            <h2 className="text-2xl font-bold text-white tracking-wide">
+            <h2 className="text-xl md:text-2xl font-bold text-white tracking-wide">
               {unidadData ? "Editar Unidad" : "Registrar Unidad"}
             </h2>
           </div>
@@ -123,8 +123,8 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8">
-          {/* Grid Layout: 2 columnas para aprovechar espacio */}
+        {/* CAMBIO AQUÍ: overflow-y-auto en el FORM para que solo esto haga scroll */}
+        <form onSubmit={handleSubmit} className="p-6 md:p-8 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Sección: Información General */}
             <div className="space-y-4 md:col-span-2">
@@ -222,7 +222,7 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
             >
               {isSubmitting ? (
                 <>
-                  <Icon icon="mdi:loading" className="animate-spin" />{" "}
+                  <Icon icon="line-md:loading-loop" />{" "}
                   Guardando...
                 </>
               ) : (
@@ -238,7 +238,6 @@ const ModalUnidad = ({ isOpen, onClose, unidadData, onSave }) => {
   );
 };
 
-// Componente Reutilizable para Inputs (lo hace más limpio)
 const InputGroup = ({
   label,
   icon,

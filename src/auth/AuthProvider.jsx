@@ -57,7 +57,6 @@ export const AuthProvider = ({ children }) => {
           .limit(1)
           .maybeSingle();
         setPersonal(personalData);
-        
       } else {
         setPersonal(null);
         setUnidad(null);
@@ -125,7 +124,14 @@ export const AuthProvider = ({ children }) => {
 
   // Muestra un loader mientras se verifica la sesión o se cargan los datos del personal
   if (loading || (session && loadingPersonal)) {
-    return <div>Cargando...</div>;
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+        <h2 className="text-gray-500 font-medium animate-pulse">
+          Cargando sistema...
+        </h2>
+      </div>
+    );
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

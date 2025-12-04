@@ -30,7 +30,7 @@ export const MainClientes = () => {
       const { data, error: queryError } = await supabase
         .from("casa_habitacion")
         .select(
-          "id_casa, nombre_cliente, apellido_cliente, calle, numero, colonia, telefono, id_contrato, delegacion, cp"
+          "id_casa, nombre_cliente, apellido_cliente, calle, numero, colonia, telefono, id_contrato, delegacion, cp , latitud, longitud"
         );
       if (queryError) throw new Error(queryError.message);
       setClientes(data || []);
@@ -261,19 +261,36 @@ export const MainClientes = () => {
                   </div>
 
                   {/* Footer Actions */}
-                  <div className="mt-auto pt-4 border-t border-gray-100 grid grid-cols-2 gap-3">
+                  <div className="mt-auto pt-4 border-t border-gray-100 flex gap-2">
+                    {/* Botón Editar (flex-1 para que ocupe espacio disponible) */}
                     <button
                       onClick={() => handleModify(cliente.id_casa)}
-                      className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-bold text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors bg-gray-50 border border-gray-200"
                     >
                       <Icon icon="mdi:pencil-outline" width="18" /> Editar
                     </button>
+
+                    {/* Botón Eliminar */}
                     <button
                       onClick={() => handleDelete(cliente.id_casa)}
-                      className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"
                     >
                       <Icon icon="mdi:trash-can-outline" width="18" /> Eliminar
                     </button>
+
+                    {/* Botón GPS (Solo si tiene coordenadas) */}
+                    {cliente.latitud && cliente.longitud && (
+                      <a
+                        /* URL CORREGIDA: Usa el formato estándar de Google Maps ?q=lat,lng */
+                        href={`https://www.google.com/maps?q=${cliente.latitud},${cliente.longitud}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-none flex items-center justify-center p-2 text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-md shadow-green-200"
+                        title="Abrir ubicación en Google Maps"
+                      >
+                        <Icon icon="mdi:google-maps" width="22" />
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

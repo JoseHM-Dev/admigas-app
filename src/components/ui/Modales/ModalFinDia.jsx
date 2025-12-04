@@ -81,6 +81,7 @@ export const ModalFinDia = ({
   listaDiaria,
   pagosDiarios,
   unidad,
+  idTurno,
 }) => {
   const [motivacion, setMotivacion] = useState("");
   const [allPersonal, setAllPersonal] = useState([]);
@@ -100,7 +101,6 @@ export const ModalFinDia = ({
   const fileInputRef = useRef(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [registroDiarioId, setRegistroDiarioId] = useState(null);
 
   const fetchPersonalAndRegistroDiario = useCallback(async () => {
     setLoading(true);
@@ -108,6 +108,7 @@ export const ModalFinDia = ({
     setSuccessMsg("");
 
     try {
+      // Solo cargamos el personal, YA NO buscamos el turno
       const { data: personal, error: personalError } = await supabase
         .from("personal")
         .select("id, nombre, apellidos, trabajando")
@@ -116,27 +117,17 @@ export const ModalFinDia = ({
       if (personalError) throw personalError;
       setAllPersonal(personal);
 
-      const { data: registros, error: registroError } = await supabase
-        .from("porcentaje_diario")
-        .select("id")
-        .is("porcentaje_final", null)
-        .order("id", { ascending: false })
-        .limit(1);
-
-      if (registroError) throw registroError;
-
-      if (registros && registros.length > 0) {
-        setRegistroDiarioId(registros[0].id);
-      } else {
-        setErrorMsg("No se encontró ningún turno abierto para finalizar.");
+      // VALIDACIÓN DE SEGURIDAD
+      if (!idTurno) {
+        setErrorMsg("Error crítico: No se identificó el turno a cerrar.");
       }
     } catch (error) {
-      console.error("Error al cargar datos:", error);
-      setErrorMsg("Error de conexión al cargar datos.");
+      console.error("Error:", error);
+      setErrorMsg("Error de conexión.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [idTurno]); // Agregamos idTurno a dependencia
 
   useEffect(() => {
     if (isOpen) {
@@ -189,7 +180,7 @@ export const ModalFinDia = ({
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (!registroDiarioId)
+    if (!idTurno)
       return setErrorMsg("No se encontró el registro inicial del día.");
     if (!registrador) return setErrorMsg("Selecciona quién registra.");
     const finalP = Number(porcentajeFinal);
@@ -215,7 +206,7 @@ export const ModalFinDia = ({
       const { error: updateError } = await supabase
         .from("porcentaje_diario")
         .update({ porcentaje_final: finalP, url_final: publicUrl })
-        .eq("id", registroDiarioId);
+        .eq("id", idTurno);
 
       if (updateError) throw updateError;
 
