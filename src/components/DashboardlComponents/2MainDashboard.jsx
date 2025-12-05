@@ -89,7 +89,7 @@ export const MainDashboard = () => {
     const { data, error } = await supabase
       .from("carga_casa")
       .select(
-        `id_carga, consumo_litros, ret, monto_total, tipo_pago, id_porcentaje, casa_habitacion ( calle, numero, colonia )`
+        `id_carga, consumo_litros, ret, monto_total, monto_pendiente , tipo_pago, id_porcentaje, casa_habitacion ( calle, numero, colonia )`
       )
       .eq("id_porcentaje", activeTurnoId);
 
@@ -126,7 +126,7 @@ export const MainDashboard = () => {
         `
         )
         // CORRECCIÓN AQUÍ: Usar "id_turno" en lugar de "id_porcentaje"
-        .eq("id_turno", activeTurnoId); 
+        .eq("id_turno", activeTurnoId);
 
       if (error) {
         console.error("Error fetching pagos diarios:", error);
@@ -135,7 +135,8 @@ export const MainDashboard = () => {
         const pagosFormateados = data.map((p) => ({
           ...p,
           // Si es un abono de crédito, no tiene carga_casa, así que mostramos "Abono a Crédito"
-          nombre_cliente: p.carga_casa?.casa_habitacion?.nombre_cliente || "Abono a Crédito",
+          nombre_cliente:
+            p.carga_casa?.casa_habitacion?.nombre_cliente || "Abono a Crédito",
           apellidos_cliente: "",
         }));
         setPagosDiarios(pagosFormateados);
@@ -151,11 +152,11 @@ export const MainDashboard = () => {
         timeZone: "America/Mexico_City",
       });
 
-      // Buscar el último registro del día
+      // 1. Buscamos si existe algún registro hoy
       const { data: ultimoRegistro, error: porError } = await supabase
         .from("porcentaje_diario")
         .select("*")
-        .eq("fecha", today) // Filtramos por fecha actual para evitar traer días viejos abiertos
+        .eq("fecha", today)
         .order("id", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -165,19 +166,16 @@ export const MainDashboard = () => {
         return;
       }
 
+      // CASO A: No hay registro hoy -> Día totalmente virgen/cerrado
       if (!ultimoRegistro) {
         setEstadoDelDia("CERRADO");
         setActiveTurnoId(null);
         return;
       }
 
-      setActiveTurnoId(ultimoRegistro.id);
-
-      if (ultimoRegistro.porcentaje_final === null) {
-        setEstadoDelDia("INICIADO");
-        setRegistrador({ id: ultimoRegistro.registrador_id });
-      } else {
-        // Si ya tiene porcentaje final, verificamos si ya se hizo el reporte completo
+      // CASO B: Sí hay registro. Verificamos si ya se cerró administrativamente (Reporte Diario)
+      if (ultimoRegistro.porcentaje_final !== null) {
+        // Ya tiene porcentaje final, checamos si ya se hizo el "Fin de Día Completo"
         const { data: ultimoReporte, error: repError } = await supabase
           .from("reporte_diario")
           .select("finalizado")
@@ -189,12 +187,20 @@ export const MainDashboard = () => {
         if (repError) console.error(repError);
 
         if (ultimoReporte && ultimoReporte.finalizado === true) {
+          // --- ESTADO: CERRADO ---
           setEstadoDelDia("CERRADO");
+          setActiveTurnoId(null); // Al estar cerrado, limpiamos el ID para que no salgan ventas
         } else {
-          // Aquí es donde activamos el estado intermedio
+          // --- ESTADO: TERMINADO (Llegada registrada, falta reporte) ---
           setEstadoDelDia("TERMINADO");
           setRegistrador({ id: ultimoRegistro.registrador_id });
+          setActiveTurnoId(ultimoRegistro.id); // Aquí SÍ necesitamos el ID para ver datos
         }
+      } else {
+        // --- ESTADO: INICIADO (Turno abierto normal) ---
+        setEstadoDelDia("INICIADO");
+        setRegistrador({ id: ultimoRegistro.registrador_id });
+        setActiveTurnoId(ultimoRegistro.id); // Aquí SÍ necesitamos el ID
       }
     } catch (error) {
       console.error("Error validando estado:", error);
@@ -513,19 +519,39 @@ export const MainDashboard = () => {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 px-4 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
-            <Icon
-              icon="mdi:clipboard-text-off-outline"
-              className="text-gray-300 w-16 h-16 mb-2"
-            />
-            <p className="text-gray-500 font-medium">
-              No hay ventas registradas en este turno aún.
-            </p>
-            <button
-              onClick={handleOpenVentaModal}
-              className="mt-4 text-sm text-indigo-600 font-bold hover:underline"
-            >
-              ¡Registra la primera venta!
-            </button>
+            {estadoDelDia === "CERRADO" ? (
+              <>
+                <Icon
+                  icon="mdi:store-clock-outline"
+                  className="text-gray-300 w-16 h-16 mb-2"
+                />
+                <p className="text-gray-500 font-medium">
+                  El turno está cerrado.
+                </p>
+                <button
+                  onClick={handleOpenNuevoDiaModal}
+                  className="mt-4 text-sm text-green-600 font-bold hover:underline"
+                >
+                  Iniciar Nuevo Día
+                </button>
+              </>
+            ) : (
+              <>
+                <Icon
+                  icon="mdi:clipboard-text-off-outline"
+                  className="text-gray-300 w-16 h-16 mb-2"
+                />
+                <p className="text-gray-500 font-medium">
+                  No hay ventas registradas en este turno aún.
+                </p>
+                <button
+                  onClick={handleOpenVentaModal}
+                  className="mt-4 text-sm text-indigo-600 font-bold hover:underline"
+                >
+                  ¡Registra la primera venta!
+                </button>
+              </>
+            )}
           </div>
         )}
       </section>

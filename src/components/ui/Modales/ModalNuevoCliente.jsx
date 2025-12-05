@@ -58,31 +58,60 @@ const ModalNuevoCliente = ({
     : contrato?.id_contrato;
 
   // --- FUNCIÓN PARA OBTENER UBICACIÓN ACTUAL ---
-  const obtenerUbicacionActual = () => {
+  const obtenerUbicacionActual = React.useCallback(() => {
     setBuscandoUbicacion(true);
+    
+    // 1. Verificación básica
     if (!navigator.geolocation) {
-      alert("La geolocalización no es soportada por tu navegador.");
+      alert("Tu navegador no soporta geolocalización.");
       setBuscandoUbicacion(false);
       return;
     }
+
+    // Opciones más amigables para móvil
+    const options = {
+      enableHighAccuracy: true, // Intentamos GPS preciso
+      timeout: 20000,           // Aumentamos a 20 seg para dar tiempo al GPS
+      maximumAge: 0
+    };
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setMapPosition([latitude, longitude]);
-        // Solo guardamos en el form si NO estamos editando una ubicación ya existente
+        
+        // Solo sobrescribimos si no estamos editando o si los campos están vacíos
         if (!isEditMode || (!cliente.latitud && !cliente.longitud)) {
              setCliente(prev => ({ ...prev, latitud: latitude, longitud: longitude }));
+             // Opcional: Llamar a actualizarDatosConCoordenadas(latitude, longitude) aquí
+             // para autollenar la dirección al obtener el GPS.
         }
         setBuscandoUbicacion(false);
       },
       (err) => {
-        console.warn("No se pudo obtener ubicación:", err);
         setBuscandoUbicacion(false);
+        let msg = "Error desconocido de ubicación.";
+        
+        // 2. Manejo de errores específico para que el usuario sepa qué pasa
+        switch(err.code) {
+            case err.PERMISSION_DENIED:
+                msg = "Permiso denegado. Por favor activa la ubicación en la configuración de tu navegador.";
+                break;
+            case err.POSITION_UNAVAILABLE:
+                msg = "La señal GPS no está disponible. Intenta salir a un lugar abierto.";
+                break;
+            case err.TIMEOUT:
+                msg = "El GPS tardó demasiado en responder.";
+                break;
+            default:
+                msg = err.message;
+        }
+        alert(msg); // Usar alert o un estado de error visible en el modal
+        console.warn("Error GPS:", err);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      options
     );
-  };
+  }, [isEditMode, cliente.latitud, cliente.longitud]);
 
   // --- EFECTO PRINCIPAL DE APERTURA ---
   useEffect(() => {
@@ -101,7 +130,7 @@ const ModalNuevoCliente = ({
             setMapPosition([lat, lng]);
         } else {
             // Si es modo edición pero NO tiene mapa guardado, buscamos GPS
-            obtenerUbicacionActual();
+            //obtenerUbicacionActual();
         }
       } else {
         // CLIENTE NUEVO: Resetear y buscar ubicación GPS
@@ -122,7 +151,7 @@ const ModalNuevoCliente = ({
       setError("");
       setGuardando(false);
     }
-  }, [isOpen, clienteToEdit, isEditMode]);
+  }, [isOpen, clienteToEdit, isEditMode, obtenerUbicacionActual]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -136,18 +165,18 @@ const ModalNuevoCliente = ({
   };
 
   // --- COMPONENTE INTERNO DEL MAPA ---
-  const MapEventsAndUpdater = () => {
+  const MapEventsAndUpdater = ({ position }) => {
     const map = useMap();
 
     // Este efecto se asegura de mover el mapa cuando cambia la posición
     useEffect(() => {
-        if (mapPosition) {
+        if (position) {
             // Truco: invalidar tamaño para asegurar que cargue bien dentro del modal
             map.invalidateSize(); 
             // Volar a la posición guardada o actual
-            map.flyTo(mapPosition, 16, { duration: 1.5 });
+            map.flyTo(position, 16, { duration: 1.5 });
         }
-    }, [mapPosition, map]);
+    }, [position, map]);
 
     // Manejar clics en el mapa para mover el pin
     useMapEvents({
@@ -158,7 +187,7 @@ const ModalNuevoCliente = ({
       },
     });
 
-    return mapPosition ? <Marker position={mapPosition} /> : null;
+    return position ? <Marker position={position} /> : null;
   };
 
   const actualizarDatosConCoordenadas = async (lat, lng) => {
@@ -274,7 +303,7 @@ const ModalNuevoCliente = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl m-4 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh]">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
+        <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
               <Icon
@@ -315,7 +344,7 @@ const ModalNuevoCliente = ({
              {/* Botón Flotante GPS */}
              <button 
                 onClick={(e) => { e.preventDefault(); obtenerUbicacionActual(); }}
-                className="absolute bottom-12 right-3 z-[400] bg-white text-gray-700 p-2 rounded-lg shadow-lg border border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                className="absolute bottom-12 right-3 z-400 bg-white text-gray-700 p-2 rounded-lg shadow-lg border border-gray-300 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 title="Centrar en mi ubicación actual"
              >
                 <Icon icon="mdi:crosshairs-gps" width="24" className={buscandoUbicacion ? "animate-spin text-blue-500" : ""} />
@@ -329,7 +358,7 @@ const ModalNuevoCliente = ({
                     style={{ height: "100%", width: "100%" }}
                  >
                     <TileLayer attribution='&copy; OSM' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <MapEventsAndUpdater />
+                    <MapEventsAndUpdater position={mapPosition} />
                  </MapContainer>
              </div>
              
@@ -379,7 +408,7 @@ const ModalNuevoCliente = ({
             {guardando ? <Icon icon="line-md:loading-loop" /> : <Icon icon="mdi:content-save" />} {guardando ? "Guardando..." : "Guardar"}
           </button>
           {!isEditMode && (
-            <button onClick={handleGuardarEIrAVentas} disabled={guardando} className="px-6 py-2.5 rounded-lg text-white font-medium bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 shadow-lg flex items-center gap-2">
+            <button onClick={handleGuardarEIrAVentas} disabled={guardando} className="px-6 py-2.5 rounded-lg text-white font-medium bg-linear-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 shadow-lg flex items-center gap-2">
               {guardando ? <Icon icon="line-md:loading-loop" /> : <Icon icon="mdi:cash-register" />} {guardando ? "Procesando..." : "Ir a Ventas →"}
             </button>
           )}

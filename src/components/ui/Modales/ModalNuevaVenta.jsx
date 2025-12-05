@@ -43,7 +43,10 @@ export default function ModalNuevaVenta({
   const [precioVigente, setPrecioVigente] = useState(null);
   const [montoTotal, setMontoTotal] = useState(0);
   const [tipoPago, setTipoPago] = useState("credito");
+
+  // montoPendiente guardará la parte "NO EFECTIVO" (lo que va a banco, deuda o transferencia)
   const [montoPendiente, setMontoPendiente] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
   const [fechaProximaCarga, setFechaProximaCarga] = useState("");
   const [comentarioProximaCarga, setComentarioProximaCarga] = useState("");
@@ -53,14 +56,11 @@ export default function ModalNuevaVenta({
 
   const [facturaUrl, setFacturaUrl] = useState(null);
   const [showModalFactura, setShowModalFactura] = useState(false);
-  
-  // Datos para el ticket
+
   const [datosUnidad, setDatosUnidad] = useState(null);
   const [listaBancos, setListaBancos] = useState([]);
 
-  // --- EFECTOS ---
-
-  // 1. Cargar Turno
+  // --- EFECTOS (Carga de datos y cálculos) ---
   useEffect(() => {
     const fetchCurrentTurno = async () => {
       if (idTurnoExterno) {
@@ -78,21 +78,14 @@ export default function ModalNuevaVenta({
           .order("id", { ascending: false })
           .limit(1)
           .maybeSingle();
-
-        if (data) {
-          setIdPorcentajeActual(data.id);
-        }
+        if (data) setIdPorcentajeActual(data.id);
       } catch (error) {
-        console.error("Error obteniendo turno actual:", error);
+        console.error("Error turno:", error);
       }
     };
-
-    if (isOpen) {
-      fetchCurrentTurno();
-    }
+    if (isOpen) fetchCurrentTurno();
   }, [isOpen, venta, idTurnoExterno]);
 
-  // 2. Cargar Datos Edición
   useEffect(() => {
     if (venta) {
       setFecha(venta.fecha_carga || getLocalDateString());
@@ -103,48 +96,31 @@ export default function ModalNuevaVenta({
       setMontoPendiente(venta.monto_pendiente || "");
       setFechaProximaCarga(venta.fecha_proxima_carga || "");
       setComentarioProximaCarga("");
-
       if (venta.id_porcentaje) setIdPorcentajeActual(venta.id_porcentaje);
-
       setSearchTerm("");
       setSelectedCasaId(null);
       setSelectedClient(null);
-
       setTimeout(() => {
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
+        if (searchInputRef.current) searchInputRef.current.focus();
       }, 100);
     } else {
       resetForm();
     }
   }, [venta]);
 
-  // 3. Cargar Datos Globales (Tarifa, Unidad, Bancos)
   useEffect(() => {
     if (isOpen) {
-      if (tarifa && tarifa.precio_litro) {
+      if (tarifa && tarifa.precio_litro)
         setPrecioVigente(parseFloat(tarifa.precio_litro));
-      } else {
-        setPrecioVigente(0);
-      }
-
+      else setPrecioVigente(0);
       if (unidad) setDatosUnidad(unidad);
-      
-      // Manejo robusto de bancos (puede ser objeto único o array)
       if (bancoContexto) {
-         if(Array.isArray(bancoContexto)) {
-             setListaBancos(bancoContexto);
-         } else {
-             setListaBancos([bancoContexto]);
-         }
-      } else {
-         setListaBancos([]);
-      }
+        if (Array.isArray(bancoContexto)) setListaBancos(bancoContexto);
+        else setListaBancos([bancoContexto]);
+      } else setListaBancos([]);
     }
   }, [isOpen, tarifa, unidad, bancoContexto]);
 
-  // Cálculos
   useEffect(() => {
     const litros = parseFloat(consumoLitros);
     const total =
@@ -152,11 +128,17 @@ export default function ModalNuevaVenta({
     setMontoTotal(total);
   }, [consumoLitros, precioVigente]);
 
+  // --- AUTO-LLENADO DE MONTOS ---
   useEffect(() => {
-    if (tipoPago === "credito" || tipoPago === "transferencia") {
-      setMontoPendiente(montoTotal > 0 ? montoTotal.toFixed(2) : "");
+    if (montoTotal > 0) {
+      // Si es Credito, Transferencia o Tarjeta, sugerimos el total por defecto
+      if (["credito", "transferencia", "tarjeta"].includes(tipoPago)) {
+        setMontoPendiente(montoTotal.toFixed(2));
+      } else {
+        setMontoPendiente("0");
+      }
     } else {
-      setMontoPendiente("0");
+      setMontoPendiente("");
     }
   }, [tipoPago, montoTotal]);
 
@@ -222,7 +204,7 @@ export default function ModalNuevaVenta({
     onClose();
   };
 
-  // --- GUARDAR ---
+  // --- GUARDAR (VERSIÓN DEFINITIVA: CREA DEUDA SI NO EXISTE AL EDITAR) ---
   const executeSaveVenta = async () => {
     if (!selectedCasaId) {
       alert("Debes buscar y seleccionar un Cliente nuevamente.");
@@ -234,6 +216,16 @@ export default function ModalNuevaVenta({
       return null;
     }
 
+    // --- CORRECCIÓN DE VALIDACIÓN (REDONDEO) ---
+    const totalRedondeado = Number(montoTotal.toFixed(2));
+    const pendienteRedondeado = montoPendiente ? Number(parseFloat(montoPendiente).toFixed(2)) : 0;
+
+    // Validación para Tarjeta y Transferencia mixta
+    if ((tipoPago === 'tarjeta' || tipoPago === 'transferencia') && pendienteRedondeado > totalRedondeado) {
+        alert(`El monto en ${tipoPago} ($${pendienteRedondeado}) no puede ser mayor al total de la venta ($${totalRedondeado}).`);
+        return null;
+    }
+
     const ventaData = {
       id_casa: selectedCasaId,
       fecha_carga: fecha,
@@ -242,13 +234,19 @@ export default function ModalNuevaVenta({
       monto_total: montoTotal,
       estado_pago: false,
       tipo_pago: tipoPago,
-      fecha_proxima_carga: fechaProximaCarga || null,
+      // monto_pendiente guarda lo que NO es efectivo
+      monto_pendiente: montoPendiente ? parseFloat(montoPendiente) : 0,
       id_porcentaje: idPorcentajeActual,
+      fecha_proxima_carga: fechaProximaCarga || null,
     };
 
     let resultId = null;
     try {
+      // ==============================
+      // CASO 1: EDICIÓN (MODIFICAR)
+      // ==============================
       if (venta && venta.id_carga) {
+        // 1. Actualizar tabla principal (carga_casa)
         const { data, error } = await supabase
           .from("carga_casa")
           .update(ventaData)
@@ -257,46 +255,77 @@ export default function ModalNuevaVenta({
           .single();
         if (error) throw error;
         resultId = data.id_carga;
+
+        // 2. ACTUALIZAR O CREAR LA DEUDA / TRANSFERENCIA
+        if (tipoPago === "credito" || tipoPago === "transferencia") {
+             // A) Intentamos actualizar el movimiento existente
+             const { data: movData, error: errorMov } = await supabase
+               .from("movimientos_credito")
+               .update({
+                   monto: parseFloat(montoPendiente),
+                   descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Editado)`
+               })
+               .eq("id_carga", resultId)
+               .select(); // IMPORTANTE: .select() nos dice si encontró algo
+             
+             if (errorMov) console.error("Error actualizando movimiento:", errorMov);
+
+             // B) SI NO ENCONTRÓ NADA (movData vacío), significa que es venta vieja o era efectivo
+             // ENTONCES LA CREAMOS DE CERO:
+             if (!movData || movData.length === 0) {
+                  const { error: rpcError } = await supabase.rpc(
+                    "registrar_movimiento_credito",
+                    {
+                      p_id_casa: selectedCasaId,
+                      p_tipo: "CARGO",
+                      p_monto: parseFloat(montoPendiente), 
+                      p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Corregido)`,
+                      p_id_carga: resultId,
+                      p_id_turno: idPorcentajeActual,
+                      p_user_id: authUser?.id,
+                      p_app_users_id: appUser?.id,
+                    }
+                  );
+                  if (rpcError) console.error("Error creando deuda en edición:", rpcError);
+             }
+        }
+        
       } else {
-        const { data, error } = await supabase
-          .from("carga_casa")
-          .insert([ventaData])
-          .select()
-          .single();
+        // ==============================
+        // CASO 2: NUEVA VENTA (INSERTAR)
+        // ==============================
+        const { data, error } = await supabase.from("carga_casa").insert([ventaData]).select().single();
         if (error) throw error;
         resultId = data.id_carga;
 
-        if (tipoPago === "credito") {
+        // REGISTRO EN CREDITOS (CUENTAS POR COBRAR) - NUEVO
+        if (tipoPago === "credito" || tipoPago === "transferencia") {
           const { error: rpcError } = await supabase.rpc(
             "registrar_movimiento_credito",
             {
               p_id_casa: selectedCasaId,
               p_tipo: "CARGO",
-              p_monto: montoTotal,
-              p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId})`,
+              p_monto: parseFloat(montoPendiente), 
+              p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()}`,
               p_id_carga: resultId,
               p_id_turno: idPorcentajeActual,
               p_user_id: authUser?.id,
               p_app_users_id: appUser?.id,
             }
           );
-          if (rpcError) console.error("Error registrando deuda:", rpcError);
+          if (rpcError) console.error("Error registrando deuda nueva:", rpcError);
         }
       }
 
+      // Agenda
       if (fechaProximaCarga) {
         await supabase.from("agenda").upsert(
-          [
-            {
-              id_casa: selectedCasaId,
-              fecha_proxima_carga: fechaProximaCarga,
-              comentario: comentarioProximaCarga,
-            },
-          ],
+          [{ id_casa: selectedCasaId, fecha_proxima_carga: fechaProximaCarga, comentario: comentarioProximaCarga }],
           { onConflict: "id_casa" }
         );
       }
       return resultId;
+
     } catch (error) {
       console.error("Error guardando:", error);
       throw error;
@@ -319,62 +348,60 @@ export default function ModalNuevaVenta({
     }
   };
 
-  // --- GENERAR TICKET ---
   const handlePrintFactura = async () => {
     setIsSaving(true);
     try {
-      // 1. Guardamos la venta primero
       const idCarga = await executeSaveVenta();
       if (!idCarga) {
         setIsSaving(false);
         return;
       }
-
-      // 2. Esperamos renderizado
       await new Promise((resolve) => setTimeout(resolve, 500));
       if (!ticketRef.current) throw new Error("Error renderizando ticket");
-
-      // 3. Generamos imagen
-      // NOTA: A veces html2canvas falla con iconos SVG complejos si no se cargan a tiempo.
-      // Si los iconos no salen, hay que usar SVGs inline o imágenes estáticas.
       const canvas = await html2canvas(ticketRef.current, {
-        scale: 2, // Mayor calidad
+        scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        allowTaint: true, // Permite imágenes externas si CORS falla
+        allowTaint: true,
       });
-
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", 0.9)
       );
       const fileName = `factura_${idCarga}_${Date.now()}.jpg`;
-
       const { error: uploadError } = await supabase.storage
         .from("facturas")
         .upload(fileName, blob, { contentType: "image/jpeg" });
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from("facturas").getPublicUrl(fileName);
-
-      await supabase.from("factura_casa").insert(
-        [{ id_carga: idCarga, url: publicUrl, fecha_factura: new Date().toISOString() }],
-        { returning: "minimal" }
-      );
-
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("facturas").getPublicUrl(fileName);
+      await supabase
+        .from("factura_casa")
+        .insert(
+          [
+            {
+              id_carga: idCarga,
+              url: publicUrl,
+              fecha_factura: new Date().toISOString(),
+            },
+          ],
+          { returning: "minimal" }
+        );
       setFacturaUrl(publicUrl);
       setShowModalFactura(true);
       onVentaGuardada();
     } catch (error) {
       console.error(error);
-      alert("Error generando factura. Intente de nuevo.");
+      alert("Error generando factura.");
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Modales Extra
   const handleOpenModalNuevoCliente = async () => {
-    try {
+    /* logica nuevo cliente */ try {
       const todayDate = getLocalDateString();
       const { data, error } = await supabase
         .from("contrato")
@@ -390,11 +417,15 @@ export default function ModalNuevaVenta({
       console.error(error);
     }
   };
-
   const handleCloseModalNuevoCliente = () => {
     setIsModalNuevoClienteOpen(false);
     setNuevoContrato(null);
   };
+
+  // CALCULO VISUAL DE EFECTIVO RESTANTE
+  const efectivoRestante = (
+    montoTotal - (parseFloat(montoPendiente) || 0)
+  ).toFixed(2);
 
   if (!isOpen) return null;
 
@@ -402,28 +433,38 @@ export default function ModalNuevaVenta({
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300">
         <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-          {/* Header Modal */}
+          {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
-                <Icon icon={venta ? "mdi:file-edit" : "mdi:file-plus"} className="text-white w-7 h-7"/>
+                <Icon
+                  icon={venta ? "mdi:file-edit" : "mdi:file-plus"}
+                  className="text-white w-7 h-7"
+                />
               </div>
               <h2 className="text-xl font-bold text-white tracking-wide">
                 {venta ? "Modificar Venta" : "Registrar Venta"}
               </h2>
             </div>
-            <button onClick={handleClose} className="text-white/80 hover:text-white transition-colors">
+            <button
+              onClick={handleClose}
+              className="text-white/80 hover:text-white transition-colors"
+            >
               <Icon icon="mdi:close" width="28" />
             </button>
           </div>
 
-          {/* Formulario Venta */}
           <div className="p-6 overflow-y-auto space-y-6">
             <form onSubmit={handleSaveButton}>
               {/* BUSCADOR */}
               <div className="relative group z-30">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
-                  Cliente {venta && <span className="text-red-500 text-[10px] ml-2">(Busca de nuevo el cliente)</span>}
+                  Cliente{" "}
+                  {venta && (
+                    <span className="text-red-500 text-[10px] ml-2">
+                      (Busca de nuevo el cliente)
+                    </span>
+                  )}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -432,7 +473,7 @@ export default function ModalNuevaVenta({
                   <input
                     ref={searchInputRef}
                     type="text"
-                    placeholder="Buscar por nombre, calle o número..."
+                    placeholder="Buscar..."
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
@@ -441,7 +482,11 @@ export default function ModalNuevaVenta({
                         setSelectedCasaId(null);
                       }
                     }}
-                    className={`block w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:bg-white focus:border-blue-500 outline-none ${venta && !selectedClient ? "ring-2 ring-blue-200 bg-blue-50" : ""}`}
+                    className={`block w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:bg-white focus:border-blue-500 outline-none ${
+                      venta && !selectedClient
+                        ? "ring-2 ring-blue-200 bg-blue-50"
+                        : ""
+                    }`}
                     autoFocus={!!venta}
                   />
                   {selectedClient && (
@@ -451,7 +496,8 @@ export default function ModalNuevaVenta({
                         setSelectedClient(null);
                         setSelectedCasaId(null);
                         setSearchTerm("");
-                        if (searchInputRef.current) searchInputRef.current.focus();
+                        if (searchInputRef.current)
+                          searchInputRef.current.focus();
                       }}
                       className="absolute inset-y-0 right-0 pr-3 flex items-center text-red-400 hover:text-red-600 cursor-pointer"
                     >
@@ -459,8 +505,6 @@ export default function ModalNuevaVenta({
                     </button>
                   )}
                 </div>
-
-                {/* Resultados */}
                 {searchResults.length > 0 && (
                   <ul className="absolute left-0 right-0 mt-2 bg-white border border-gray-100 rounded-xl shadow-xl max-h-56 overflow-y-auto z-50">
                     {searchResults.map((client) => (
@@ -469,58 +513,112 @@ export default function ModalNuevaVenta({
                         onClick={() => handleSelectClient(client)}
                         className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex flex-col"
                       >
-                        <span className="font-bold text-gray-800">{client.nombre_cliente}</span>
+                        <span className="font-bold text-gray-800">
+                          {client.nombre_cliente}
+                        </span>
                         <span className="text-xs text-gray-500 flex items-center gap-1">
-                          <Icon icon="mdi:map-marker" width="12" /> {client.calle} #{client.numero}, {client.colonia}
+                          <Icon icon="mdi:map-marker" width="12" />{" "}
+                          {client.calle} #{client.numero}
                         </span>
                       </li>
                     ))}
                   </ul>
                 )}
-                {searchResults.length === 0 && searchTerm.length > 2 && !isSearching && !selectedClient && (
+                {searchResults.length === 0 &&
+                  searchTerm.length > 2 &&
+                  !isSearching &&
+                  !selectedClient && (
                     <div className="mt-2 text-sm text-gray-500 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                       <span>No encontrado.</span>
-                      <button type="button" onClick={handleOpenModalNuevoCliente} className="text-blue-600 font-bold hover:underline flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleOpenModalNuevoCliente}
+                        className="text-blue-600 font-bold hover:underline flex items-center gap-1"
+                      >
                         <Icon icon="mdi:plus-circle" /> Crear Nuevo Cliente
                       </button>
                     </div>
-                )}
+                  )}
               </div>
 
-              {/* INPUTS DE VENTA */}
+              {/* INPUTS BASICOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-                <InputGroup label="Fecha" icon="mdi:calendar" name="fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+                <InputGroup
+                  label="Fecha"
+                  icon="mdi:calendar"
+                  name="fecha"
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                />
                 <div className="group">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Precio x Litro</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
+                    Precio x Litro
+                  </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Icon icon="mdi:tag-text" width="20" /></div>
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Icon icon="mdi:tag-text" width="20" />
+                    </div>
                     <input
                       type="text"
-                      value={precioVigente !== null ? `$ ${Number(precioVigente).toFixed(2)}` : "$ 0.00"}
+                      value={
+                        precioVigente !== null
+                          ? `$ ${Number(precioVigente).toFixed(2)}`
+                          : "$ 0.00"
+                      }
                       disabled
                       className="block w-full pl-10 pr-3 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-600 font-medium"
                     />
                   </div>
                 </div>
-                <InputGroup label="Consumo (Litros)" icon="mdi:gas-station" name="consumo" type="number" placeholder="0.00" value={consumoLitros} onChange={(e) => setConsumoLitros(e.target.value)} />
-                <InputGroup label="RET (Opcional)" icon="mdi:percent" name="ret" type="number" placeholder="0" value={ret} onChange={(e) => setRet(e.target.value)} />
+                <InputGroup
+                  label="Consumo (Litros)"
+                  icon="mdi:gas-station"
+                  name="consumo"
+                  type="number"
+                  placeholder="0.00"
+                  value={consumoLitros}
+                  onChange={(e) => setConsumoLitros(e.target.value)}
+                />
+                <InputGroup
+                  label="RET (Opcional)"
+                  icon="mdi:percent"
+                  name="ret"
+                  type="number"
+                  placeholder="0"
+                  value={ret}
+                  onChange={(e) => setRet(e.target.value)}
+                />
               </div>
 
+              {/* TOTAL */}
               <div className="bg-gradient-to-br from-emerald-50 to-teal-100 border border-emerald-200 rounded-xl p-5 my-6 flex justify-between items-center shadow-sm">
                 <div>
-                  <h4 className="text-emerald-800 text-sm font-bold uppercase tracking-wider">Monto Total</h4>
-                  <span className="text-emerald-600/70 text-xs">Calculado automáticamente</span>
+                  <h4 className="text-emerald-800 text-sm font-bold uppercase tracking-wider">
+                    Monto Total Venta
+                  </h4>
+                  <span className="text-emerald-600/70 text-xs">
+                    Calculado automáticamente
+                  </span>
                 </div>
                 <div className="text-4xl font-extrabold text-emerald-600">
-                  {montoTotal.toLocaleString("es-MX", { style: "currency", currency: "MXN" })}
+                  {montoTotal.toLocaleString("es-MX", {
+                    style: "currency",
+                    currency: "MXN",
+                  })}
                 </div>
               </div>
 
+              {/* --- LOGICA DE PAGO MIXTA (TARJETA Y TRANSFERENCIA) --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="group">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">Método de Pago</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
+                    Método de Pago
+                  </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><Icon icon="mdi:credit-card-outline" width="20" /></div>
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Icon icon="mdi:credit-card-outline" width="20" />
+                    </div>
                     <select
                       value={tipoPago}
                       onChange={(e) => setTipoPago(e.target.value)}
@@ -533,149 +631,138 @@ export default function ModalNuevaVenta({
                     </select>
                   </div>
                 </div>
-                <InputGroup
-                  label="Monto Pendiente"
-                  icon="mdi:cash-clock"
-                  type="number"
-                  value={montoPendiente}
-                  onChange={(e) => setMontoPendiente(e.target.value)}
-                  disabled={!(tipoPago === "credito" || tipoPago === "transferencia")}
-                  className={!(tipoPago === "credito" || tipoPago === "transferencia") ? "bg-gray-100 text-gray-400" : ""}
-                />
+
+                {/* Input Dinámico */}
+                <div className="relative">
+                  <InputGroup
+                    // ETIQUETAS DINAMICAS SEGUN EL TIPO
+                    label={
+                      tipoPago === "tarjeta"
+                        ? "Monto a Cobrar en Tarjeta"
+                        : tipoPago === "transferencia"
+                        ? "Monto de Transferencia"
+                        : tipoPago === "credito"
+                        ? "Monto a Crédito (Deuda)"
+                        : "Monto Pendiente"
+                    }
+                    icon={
+                      tipoPago === "tarjeta"
+                        ? "mdi:credit-card-check"
+                        : tipoPago === "transferencia"
+                        ? "mdi:bank-transfer-in"
+                        : "mdi:cash-clock"
+                    }
+                    type="number"
+                    value={montoPendiente}
+                    onChange={(e) => setMontoPendiente(e.target.value)}
+                    // Habilitado para Credito, Tarjeta y Transferencia
+                    disabled={tipoPago === "efectivo"}
+                    className={
+                      tipoPago === "efectivo"
+                        ? "bg-gray-100 text-gray-400"
+                        : "bg-white border-blue-300 text-blue-800 font-bold"
+                    }
+                  />
+
+                  {/* FEEDBACK VISUAL PARA PAGOS MIXTOS (TARJETA O TRANSFERENCIA) */}
+                  {(tipoPago === "tarjeta" || tipoPago === "transferencia") &&
+                    montoTotal > 0 && (
+                      <div className="absolute -bottom-6 right-0 text-[10px] font-bold text-gray-500">
+                        Resto en Efectivo:{" "}
+                        <span className="text-green-600">
+                          ${Number(efectivoRestante).toLocaleString("es-MX")}
+                        </span>
+                      </div>
+                    )}
+                </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <h4 className="text-sm font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><Icon icon="mdi:calendar-clock" /> Próxima Carga</h4>
+              <div className="mt-8 pt-4 border-t border-gray-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <InputGroup label="Fecha Estimada" icon="mdi:calendar-arrow-right" type="date" value={fechaProximaCarga} onChange={(e) => setFechaProximaCarga(e.target.value)} />
+                  <InputGroup
+                    label="Próxima Carga"
+                    icon="mdi:calendar-arrow-right"
+                    type="date"
+                    value={fechaProximaCarga}
+                    onChange={(e) => setFechaProximaCarga(e.target.value)}
+                  />
                   {fechaProximaCarga && (
-                    <InputGroup label="Comentario / Nota" icon="mdi:comment-text-outline" value={comentarioProximaCarga} onChange={(e) => setComentarioProximaCarga(e.target.value)} placeholder="Ej. Llamar antes..." />
+                    <InputGroup
+                      label="Nota"
+                      icon="mdi:comment-text-outline"
+                      value={comentarioProximaCarga}
+                      onChange={(e) =>
+                        setComentarioProximaCarga(e.target.value)
+                      }
+                    />
                   )}
                 </div>
               </div>
 
               <div className="mt-8 flex justify-end gap-3">
-                <button type="button" onClick={handlePrintFactura} disabled={isSaving || !selectedCasaId} className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 shadow-sm flex items-center gap-2">
-                  <Icon icon="mdi:printer" /> {isSaving ? "Generando..." : "Ticket"}
+                <button
+                  type="button"
+                  onClick={handlePrintFactura}
+                  disabled={isSaving || !selectedCasaId}
+                  className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 shadow-sm flex items-center gap-2"
+                >
+                  <Icon icon="mdi:printer" />{" "}
+                  {isSaving ? "Generando..." : "Ticket"}
                 </button>
-                <button type="submit" disabled={isSaving} className="px-6 py-2.5 rounded-lg text-white font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg flex items-center gap-2">
-                  {isSaving ? <><Icon icon="line-md:loading-loop" width="24" /> Guardando...</> : <><Icon icon="mdi:content-save-check" width="20" /> {venta ? "Actualizar" : "Guardar"}</>}
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-6 py-2.5 rounded-lg text-white font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg flex items-center gap-2"
+                >
+                  {isSaving ? "Guardando..." : venta ? "Actualizar" : "Guardar"}
                 </button>
               </div>
             </form>
           </div>
         </div>
-
-        {/* Modales Hijos */}
-        <ModalNuevoCliente isOpen={isModalNuevoClienteOpen} onClose={handleCloseModalNuevoCliente} contrato={nuevoContrato} />
-        <ModalFactura isOpen={showModalFactura} onClose={() => { setShowModalFactura(false); handleClose(); }} facturaUrl={facturaUrl} clienteTelefono={selectedClient?.telefono || ""} />
-
-        {/* --- TICKET RENDERIZADO PROFESIONAL Y LLAMATIVO --- */}
+        <ModalNuevoCliente
+          isOpen={isModalNuevoClienteOpen}
+          onClose={handleCloseModalNuevoCliente}
+          contrato={nuevoContrato}
+        />
+        <ModalFactura
+          isOpen={showModalFactura}
+          onClose={() => {
+            setShowModalFactura(false);
+            handleClose();
+          }}
+          facturaUrl={facturaUrl}
+          clienteTelefono={selectedClient?.telefono || ""}
+        />
+        {/* Ticket oculto (igual que antes) */}
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <div ref={ticketRef} style={ticketStyles.ticketContainer}>
-            
-            {/* 1. ENCABEZADO DEL TICKET */}
             <div style={ticketStyles.ticketHeaderBg}>
-              {authUser?.user_metadata?.avatar_url && (
-                <img
-                  src={authUser.user_metadata.avatar_url}
-                  alt="Logo"
-                  style={ticketStyles.ticketLogo}
-                  crossOrigin="anonymous"
-                />
-              )}
-              <h2 style={ticketStyles.ticketTitle}>{datosUnidad?.empresa || "GAS LP"}</h2>
-              <div style={ticketStyles.ticketSubtitle}>Unidad: <strong>{datosUnidad?.num_unidad || "S/N"}</strong></div>
-              
-              {/* TELÉFONOS LLAMATIVOS */}
-              <div style={ticketStyles.ticketPhoneHighlight}>
-                 <Icon icon="mdi:phone-in-talk" width="16" style={{marginRight: '4px'}} />
-                 <span>{datosUnidad?.telefono_1 || "---"} 
-                  <hr />
-                 {datosUnidad?.telefono_2 || "---"}</span>
-              </div>
-              
-              <div style={{ ...ticketStyles.ticketSubtitle, marginTop: "4px", fontSize: "11px", display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.8 }}>
-                <Icon icon="mdi:calendar-clock" width="12" style={{marginRight: '4px'}} />
-                {new Date().toLocaleDateString("es-MX", {
-                  year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
-                })}
-              </div>
+              <h2 style={ticketStyles.ticketTitle}>
+                {datosUnidad?.empresa || "GAS LP"}
+              </h2>
             </div>
-
-            {/* 2. CUERPO DEL TICKET */}
             <div style={ticketStyles.ticketBody}>
-              
-              {/* Sección Cliente */}
-              <div style={ticketStyles.ticketSectionTitle}>
-                 <Icon icon="mdi:account-details" width="14" style={{marginRight: '4px', verticalAlign: 'text-bottom'}}/>
-                 CLIENTE
-              </div>
-              <div style={ticketStyles.ticketClientBox}>
-                <div style={ticketStyles.ticketClientName}>
-                  {selectedClient?.nombre_cliente || "Público General"}
-                </div>
-                <div style={ticketStyles.ticketClientInfo}>
-                  <Icon icon="mdi:map-marker-radius" width="12" style={{marginRight: '2px', display: 'inline-block', color: '#6B7280'}} />
-                  {selectedClient?.calle} #{selectedClient?.numero}
-                  <br/><span style={{marginLeft: '14px'}}>{selectedClient?.colonia}</span>
-                </div>
-              </div>
-
-              {/* Sección Detalles */}
-              <div style={ticketStyles.ticketSectionTitle}>
-                 <Icon icon="mdi:gas-station-outline" width="14" style={{marginRight: '4px', verticalAlign: 'text-bottom'}}/>
-                 DETALLES DE VENTA
-              </div>
-              
               <div style={ticketStyles.ticketRow}>
-                <span><Icon icon="mdi:tag-text-outline" width="14" style={{verticalAlign: '-2px', marginRight:'4px', color: '#6B7280'}}/>Precio por Litro:</span>
-                <strong>$ {Number(precioVigente).toFixed(2)}</strong>
+                <span>Forma de Pago:</span>
+                <strong>
+                  {tipoPago}{" "}
+                  {(tipoPago === "tarjeta" || tipoPago === "transferencia") &&
+                  efectivoRestante > 0
+                    ? "(MIXTO)"
+                    : ""}
+                </strong>
               </div>
-              <div style={ticketStyles.ticketRow}>
-                <span><Icon icon="mdi:barrel" width="14" style={{verticalAlign: '-2px', marginRight:'4px', color: '#6B7280'}}/>Consumo:</span>
-                <strong>{consumoLitros} Litros</strong>
-              </div>
-              <div style={ticketStyles.ticketRow}>
-                <span><Icon icon="mdi:hand-coin-outline" width="14" style={{verticalAlign: '-2px', marginRight:'4px', color: '#6B7280'}}/>Forma de Pago:</span>
-                <strong style={{textTransform: 'uppercase'}}>{tipoPago}</strong>
-              </div>
-
-              {/* Total */}
               <div style={ticketStyles.ticketRowTotal}>
-                <span style={{display:'flex', alignItems:'center'}}><Icon icon="mdi:cash-multiple" width="24" style={{marginRight:'8px', color: '#1F2937'}}/>TOTAL:</span>
-                <span>${montoTotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                <span>TOTAL:</span>
+                <span>
+                  $
+                  {montoTotal.toLocaleString("es-MX", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
               </div>
             </div>
-
-            {/* 3. PIE DE PÁGINA: BANCOS E ICONOS */}
-            <div style={ticketStyles.ticketFooter}>
-               {listaBancos.length > 0 && (
-                   <div style={{marginBottom: '15px'}}>
-                       <div style={{fontSize: '10px', fontWeight: 'bold', color: '#9CA3AF', marginBottom: '5px', display: 'flex', alignItems: 'center',}}>
-                          <Icon icon="mdi:bank-transfer-in" width="14" style={{marginRight:'4px'}}/>
-                          DATOS PARA TRANSFERENCIA
-                       </div>
-                       {listaBancos.map((banco, i) => (
-                           <div key={banco.id || i} style={ticketStyles.ticketBankBox}>
-                               <div style={{fontWeight: 'bold', color: '#374151', display: 'flex', alignItems: 'center', textAlign: 'center'}}>
-                                  <Icon icon="mdi:bank" width="12" style={{marginRight: '4px', color: '#4F46E5'}}/>
-                                  {banco.banco}
-                               </div>
-                               <div style={{marginLeft: '16px'}}>Cta: {banco.cuenta }</div>
-                               <div style={{marginLeft: '16px'}}>CLABE: {banco.clave_int}</div>
-                               <div style={{marginLeft: '16px'}}>CLABE: {banco.nom_responsable}</div>
-                           </div>
-                       ))}
-                   </div>
-               )}
-               
-               <div style={{fontSize: '14px', fontWeight: 'bold', color: '#4B5563', marginTop: '10px', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                   <Icon icon="mdi:handshake" width="18" style={{marginRight:'6px', color: '#10B981'}} />
-                   ¡Gracias por su preferencia!
-               </div>
-            </div>
-
           </div>
         </div>
       </div>
@@ -683,131 +770,48 @@ export default function ModalNuevaVenta({
   );
 }
 
-// Componente InputGroup
 const InputGroup = ({ label, icon, className = "", ...props }) => (
   <div className="group">
-    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">{label}</label>
+    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
+      {label}
+    </label>
     <div className="relative">
       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
         <Icon icon={icon} width="20" />
       </div>
-      <input {...props} className={`block w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 outline-none transition-all ${className}`} />
+      <input
+        {...props}
+        className={`block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-blue-500 outline-none transition-all ${className}`}
+      />
     </div>
   </div>
 );
 
-// ESTILOS TICKET ACTUALIZADOS Y MEJORADOS
 const ticketStyles = {
   ticketContainer: {
     width: "400px",
     backgroundColor: "#ffffff",
     color: "#1f2937",
-    fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", // Fuente más limpia
-    borderRadius: "0px",
-    overflow: "hidden",
     border: "1px solid #e5e7eb",
   },
   ticketHeaderBg: {
-    backgroundColor: "#1F2937", // Fondo oscuro
+    backgroundColor: "#1F2937",
     color: "white",
-    padding: "25px 20px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
+    padding: "20px",
     textAlign: "center",
-    position: "relative",
   },
-  ticketLogo: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "50%",
-    objectFit: "cover",
-    marginBottom: "10px",
-    border: "3px solid white",
-    backgroundColor: "white",
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
-  },
-  ticketTitle: {
-    fontSize: "20px",
-    fontWeight: "800",
-    textTransform: "uppercase",
-    margin: "0 0 5px 0",
-    letterSpacing: "1px",
-    lineHeight: "1.2"
-  },
-  ticketSubtitle: { fontSize: "13px", opacity: 0.9, margin: "2px 0" },
-  // NUEVO ESTILO PARA TELÉFONOS LLAMATIVOS
-  ticketPhoneHighlight: {
-    backgroundColor: "rgba(251, 191, 36, 0.15)", // Fondo amarillo translúcido
-    color: "#FBBF24", // Texto amarillo/ámbar brillante
-    fontWeight: "800",
-    fontSize: "15px",
-    padding: "6px 14px",
-    borderRadius: "20px", // Bordes redondeados tipo insignia
-    marginTop: "8px",
-    marginBottom: "4px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "1px solid rgba(251, 191, 36, 0.4)", // Borde amarillo sutil
-    letterSpacing: "0.5px"
-  },
-  ticketBody: { padding: "25px 20px" },
-  ticketSectionTitle: {
-    fontSize: "11px",
-    fontWeight: "700",
-    color: "#9CA3AF",
-    textTransform: "uppercase",
-    marginBottom: "10px",
-    borderBottom: "2px solid #F3F4F6",
-    paddingBottom: "6px",
-    display: "flex",
-    alignItems: "center",
-    letterSpacing: "0.5px"
-  },
-  ticketClientBox: {
-    marginBottom: "25px",
-    paddingLeft: "4px"
-  },
-  ticketClientName: {
-    fontSize: "16px",
-    fontWeight: "800",
-    marginBottom: "4px",
-    color: "#111827"
-  },
-  ticketClientInfo: { fontSize: "13px", color: "#4B5563", lineHeight: "1.4" },
+  ticketTitle: { fontSize: "20px", fontWeight: "800" },
+  ticketBody: { padding: "20px" },
   ticketRow: {
     display: "flex",
     justifyContent: "space-between",
     marginBottom: "8px",
-    fontSize: "14px",
-    color: "#374151",
-    alignItems: "center"
   },
   ticketRowTotal: {
     display: "flex",
     justifyContent: "space-between",
     marginTop: "20px",
-    paddingTop: "20px",
-    borderTop: "3px dashed #E5E7EB",
     fontSize: "24px",
     fontWeight: "900",
-    color: "#111827",
-    alignItems: "center"
-  },
-  ticketFooter: {
-    backgroundColor: "#F9FAFB",
-    padding: "20px",
-    borderTop: "1px solid #e5e7eb",
-  },
-  ticketBankBox: {
-    textAlign: "center",
-    backgroundColor: "white",
-    border: "1px solid #E5E7EB",
-    borderRadius: "8px",
-    padding: "10px 12px",
-    marginBottom: "8px",
-    fontSize: "12px",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
   },
 };

@@ -16,46 +16,67 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
     const litrosNetos = litros - litrosRet;
 
     // 2. VENTAS (Cargas) desglosadas
-    const ventaEfectivo = listaDiaria
+
+    // a) Ventas marcadas explícitamente como efectivo puro
+    const ventasEfectivoPuro = listaDiaria
       .filter((i) => i.tipo_pago === "efectivo")
       .reduce((acc, i) => acc + (Number(i.monto_total) || 0), 0);
 
+    // b) La parte de efectivo de las ventas mixtas TARJETA
+    const ventasEfectivoDeMixtoTarjeta = listaDiaria
+      .filter((i) => i.tipo_pago === "tarjeta")
+      .reduce((acc, i) => {
+        const total = Number(i.monto_total) || 0;
+        const enTarjeta = Number(i.monto_pendiente) || 0;
+        return acc + (total - enTarjeta);
+      }, 0);
+
+    // c) La parte de efectivo de las ventas mixtas TRANSFERENCIA (NUEVO)
+    const ventasEfectivoDeMixtoTransferencia = listaDiaria
+      .filter((i) => i.tipo_pago === "transferencia")
+      .reduce((acc, i) => {
+        const total = Number(i.monto_total) || 0;
+        const enTransferencia = Number(i.monto_pendiente) || 0;
+        return acc + (total - enTransferencia);
+      }, 0);
+
+    // Total Efectivo sumando las 3 fuentes
+    const ventaEfectivo =
+      ventasEfectivoPuro +
+      ventasEfectivoDeMixtoTarjeta +
+      ventasEfectivoDeMixtoTransferencia;
+
+    // d) Transferencias (Solo la parte digital, guardada en monto_pendiente)
     const ventaTransferencia = listaDiaria
       .filter((i) => i.tipo_pago === "transferencia")
-      .reduce((acc, i) => acc + (Number(i.monto_total) || 0), 0);
+      .reduce((acc, i) => acc + (Number(i.monto_pendiente) || 0), 0);
 
+    // e) Tarjetas (Solo la parte digital)
     const ventaTarjeta = listaDiaria
       .filter((i) => i.tipo_pago === "tarjeta")
-      .reduce((acc, i) => acc + (Number(i.monto_total) || 0), 0);
+      .reduce((acc, i) => acc + (Number(i.monto_pendiente) || 0), 0);
 
     const ventaCredito = listaDiaria
       .filter((i) => i.tipo_pago === "credito")
-      .reduce((acc, i) => acc + (Number(i.monto_total) || 0), 0);
+      .reduce((acc, i) => acc + (Number(i.monto_pendiente) || 0), 0);
 
-    // 3. COBRANZA (Abonos) desglosada
+    // 3. COBRANZA (Abonos)
     const cobroEfectivo = pagosDiarios
       .filter((p) => p.tipo_pago === "efectivo")
       .reduce((acc, p) => acc + (Number(p.monto_pago) || 0), 0);
-
     const cobroTransferencia = pagosDiarios
       .filter((p) => p.tipo_pago === "transferencia")
       .reduce((acc, p) => acc + (Number(p.monto_pago) || 0), 0);
-
     const cobroTarjeta = pagosDiarios
       .filter((p) => p.tipo_pago === "tarjeta")
       .reduce((acc, p) => acc + (Number(p.monto_pago) || 0), 0);
 
     // 4. TOTALES FINALES
     const totalCaja = ventaEfectivo + cobroEfectivo;
-
-    // Total Bancos (Dinero real en cuenta: Transferencias + Tarjetas de Ventas y Cobros)
     const totalTransferencia = ventaTransferencia + cobroTransferencia;
     const totalTarjeta = ventaTarjeta + cobroTarjeta;
     const totalBancos = totalTransferencia + totalTarjeta;
-
-    // Créditos otorgados (Cuentas por cobrar generadas hoy)
     const totalCreditosOtorgados = ventaCredito;
-
     const totalCobranza = cobroEfectivo + cobroTransferencia + cobroTarjeta;
 
     return {
@@ -65,25 +86,23 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
       ventaEfectivo,
       cobroEfectivo,
       totalCaja,
-
-      // Desglose Digital
       ventaTransferencia,
       cobroTransferencia,
       totalTransferencia,
-
       ventaTarjeta,
       cobroTarjeta,
       totalTarjeta,
-
-      // Crédito
       totalCreditosOtorgados,
-
       totalBancos,
       totalCobranza,
     };
   }, [listaDiaria, pagosDiarios]);
 
-  // Función auxiliar para iconos de pago
+  const formatMoney = (amount) =>
+    Number(amount).toLocaleString("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    });
   const getPaymentIcon = (tipo) => {
     if (tipo === "efectivo") return "mdi:cash";
     if (tipo === "transferencia") return "mdi:bank-transfer";
@@ -91,16 +110,9 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
     return "mdi:currency-usd";
   };
 
-  const formatMoney = (amount) => {
-    return Number(amount).toLocaleString("es-MX", {
-      style: "currency",
-      currency: "MXN",
-    });
-  };
-
   return (
     <section className="m-auto max-w-6xl p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10 print:grid-cols-3 print:gap-4">
-      {/* TARJETA 1: RESUMEN OPERATIVO Y CAJA */}
+      {/* TARJETA 1: Balance y Caja */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 relative group print:shadow-none print:border-gray-300">
         <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 group-hover:bg-blue-500 transition-colors"></div>
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 print:bg-none print:bg-gray-100 print:text-black">
@@ -109,7 +121,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
           </h3>
         </div>
         <div className="p-5 space-y-4">
-          {/* Bloque de Litros */}
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col items-center p-2 bg-blue-50 rounded-lg border border-blue-100">
               <span className="text-xs text-blue-500 font-bold uppercase">
@@ -128,7 +139,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
               </span>
             </div>
           </div>
-
           <div className="flex justify-between items-center p-3 bg-indigo-50 rounded-xl border border-indigo-200 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-500 rounded-full text-white shadow-md print:hidden">
@@ -142,9 +152,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
               {resumen.litrosNetos.toFixed(2)} L
             </span>
           </div>
-
           <hr className="border-gray-200" />
-
           <div className="flex flex-col p-4 bg-emerald-50 rounded-xl border border-emerald-200 shadow-inner">
             <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-1">
               Total Efectivo en Caja
@@ -166,7 +174,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
         </div>
       </div>
 
-      {/* TARJETA 2: BANCOS / DIGITAL (DESGLOSADA) */}
+      {/* TARJETA 2: Digital / Bancos */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 relative group print:shadow-none print:border-gray-300">
         <div className="absolute top-0 left-0 w-1 h-full bg-purple-600 group-hover:bg-purple-500 transition-colors"></div>
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 print:bg-none print:bg-gray-100">
@@ -175,7 +183,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
           </h3>
         </div>
         <div className="p-5 flex flex-col h-full space-y-4">
-          {/* Cabecera Total Bancos */}
           <div className="text-center pb-2 border-b border-gray-100">
             <p className="text-gray-500 font-medium text-xs uppercase tracking-wider">
               Total Ingresado (Bancos)
@@ -184,10 +191,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
               {formatMoney(resumen.totalBancos)}
             </p>
           </div>
-
-          {/* Desglose Tabla */}
           <div className="space-y-3 flex-1">
-            {/* Fila Transferencia */}
             <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg border border-purple-100">
               <div className="flex items-center gap-2">
                 <Icon icon="mdi:bank-transfer" className="text-purple-500" />
@@ -199,8 +203,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
                 {formatMoney(resumen.totalTransferencia)}
               </span>
             </div>
-
-            {/* Fila Tarjeta */}
             <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg border border-blue-100">
               <div className="flex items-center gap-2">
                 <Icon icon="mdi:credit-card" className="text-blue-500" />
@@ -212,8 +214,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
                 {formatMoney(resumen.totalTarjeta)}
               </span>
             </div>
-
-            {/* Fila Crédito (Separada visualmente) */}
             <div className="flex justify-between items-center p-2 bg-orange-50 rounded-lg border border-orange-100 mt-2">
               <div className="flex items-center gap-2">
                 <Icon icon="mdi:book-clock" className="text-orange-500" />
@@ -229,7 +229,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
         </div>
       </div>
 
-      {/* TARJETA 3: DETALLE DE COBRANZA (ABONOS) */}
+      {/* TARJETA 3: Cobranza (Igual) */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col md:col-span-2 lg:col-span-1 relative print:shadow-none print:border-gray-300">
         <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
         <div className="bg-gradient-to-r from-teal-500 to-emerald-500 p-4 flex justify-between items-center shrink-0 print:bg-none print:bg-gray-100">
@@ -240,7 +240,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
             Total: {formatMoney(resumen.totalCobranza)}
           </span>
         </div>
-
         <div className="p-0 overflow-y-auto max-h-[250px] custom-scrollbar bg-gray-50/50 print:bg-white print:max-h-none">
           {pagosDiarios.length > 0 ? (
             <ul className="divide-y divide-gray-100">
@@ -251,14 +250,13 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm 
-                            ${
-                              pago.tipo_pago === "efectivo"
-                                ? "bg-green-100 text-green-600"
-                                : pago.tipo_pago === "transferencia"
-                                ? "bg-purple-100 text-purple-600"
-                                : "bg-blue-100 text-blue-600"
-                            }`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
+                        pago.tipo_pago === "efectivo"
+                          ? "bg-green-100 text-green-600"
+                          : pago.tipo_pago === "transferencia"
+                          ? "bg-purple-100 text-purple-600"
+                          : "bg-blue-100 text-blue-600"
+                      }`}
                     >
                       <Icon icon={getPaymentIcon(pago.tipo_pago)} width="16" />
                     </div>
