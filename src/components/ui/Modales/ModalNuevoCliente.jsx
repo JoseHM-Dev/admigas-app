@@ -198,37 +198,46 @@ const ModalNuevoCliente = ({
     return position ? <Marker position={position} /> : null;
   };
 
+  // --- FUNCIÓN CORREGIDA PARA EVITAR ERROR CORS/503 ---
   const actualizarDatosConCoordenadas = async (lat, lng) => {
+    // 1. Actualizamos coordenadas visuales inmediatamente
     setCliente((prev) => ({ ...prev, latitud: lat, longitud: lng }));
-
     setCargandoDireccion(true);
+
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-      );
+      // OPCIÓN A: Nominatim (Suele fallar en localhost por políticas estrictas)
+      // const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+      
+      // OPCIÓN B: BigDataCloud (Más estable para desarrollo y localhost, sin CORS strict)
+      // Usamos esta para evitar tu error actual:
+      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=es`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error("No se pudo obtener la dirección automática.");
+      }
+
       const data = await response.json();
 
-      if (data && data.address) {
-        const addr = data.address;
+      // Mapeo de datos (La estructura de BigDataCloud es ligeramente diferente pero muy clara)
+      if (data) {
         setCliente((prev) => ({
           ...prev,
           latitud: lat,
           longitud: lng,
-          calle: addr.road || addr.pedestrian || addr.street || prev.calle,
-          numero: addr.house_number || prev.numero,
-          colonia:
-            addr.neighbourhood || addr.suburb || addr.quarter || prev.colonia,
-          cp: addr.postcode || prev.cp,
-          delegacion:
-            addr.city ||
-            addr.town ||
-            addr.village ||
-            addr.county ||
-            prev.delegacion,
+          // Intentamos llenar los campos con lo que encontremos
+          calle: data.street || data.route || prev.calle || "", 
+          // Nota: Esta API a veces no da el número exacto por privacidad, dejamos el previo
+          numero: prev.numero || "", 
+          colonia: data.locality || data.suburb || prev.colonia || "",
+          cp: data.postcode || prev.cp || "",
+          delegacion: data.city || data.principalSubdivision || prev.delegacion || "",
         }));
       }
     } catch (error) {
-      console.error("Error obteniendo dirección:", error);
+      console.warn("⚠️ No se pudo autocompletar la dirección (puedes llenarla manual):", error);
+      // No mostramos alerta al usuario para no interrumpir, solo dejamos que llene manual
     } finally {
       setCargandoDireccion(false);
     }

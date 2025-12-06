@@ -1,10 +1,13 @@
 import React, { useMemo } from "react";
 import { Icon } from "@iconify/react";
 
-export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
+export const DailySummary = ({
+  listaDiaria = [],
+  pagosDiarios = [],
+  onDeletePago,
+}) => {
   // --- CÁLCULOS MATEMÁTICOS ---
   const resumen = useMemo(() => {
-    // 1. Litros
     const litros = listaDiaria.reduce(
       (acc, item) => acc + (Number(item.consumo_litros) || 0),
       0
@@ -15,14 +18,12 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
     );
     const litrosNetos = litros - litrosRet;
 
-    // 2. VENTAS (Cargas) desglosadas
-
-    // a) Ventas marcadas explícitamente como efectivo puro
+    // 1. Efectivo Puro
     const ventasEfectivoPuro = listaDiaria
       .filter((i) => i.tipo_pago === "efectivo")
       .reduce((acc, i) => acc + (Number(i.monto_total) || 0), 0);
 
-    // b) La parte de efectivo de las ventas mixtas TARJETA
+    // 2. Efectivo "oculto" en Tarjetas Mixtas
     const ventasEfectivoDeMixtoTarjeta = listaDiaria
       .filter((i) => i.tipo_pago === "tarjeta")
       .reduce((acc, i) => {
@@ -31,7 +32,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
         return acc + (total - enTarjeta);
       }, 0);
 
-    // c) La parte de efectivo de las ventas mixtas TRANSFERENCIA (NUEVO)
+    // 3. Efectivo "oculto" en Transferencias Mixtas
     const ventasEfectivoDeMixtoTransferencia = listaDiaria
       .filter((i) => i.tipo_pago === "transferencia")
       .reduce((acc, i) => {
@@ -40,27 +41,46 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
         return acc + (total - enTransferencia);
       }, 0);
 
-    // Total Efectivo sumando las 3 fuentes
+    // 4. (NUEVO) Efectivo "oculto" en Créditos Mixtos (Lo que no es deuda y NO se fue a tarjeta, es efectivo)
+    const ventasEfectivoDeMixtoCredito = listaDiaria
+      .filter((i) => i.tipo_pago === "credito" && i.tipo_pago_resto !== "tarjeta") // CHECK HERE
+      .reduce((acc, i) => {
+        const total = Number(i.monto_total) || 0;
+        const deuda = Number(i.monto_pendiente) || 0;
+        return acc + (total - deuda);
+      }, 0);
+
+    // 5. (NUEVO) Tarjeta "oculta" en Créditos Mixtos
+    const ventasTarjetaDeMixtoCredito = listaDiaria
+      .filter((i) => i.tipo_pago === "credito" && i.tipo_pago_resto === "tarjeta") // CHECK HERE
+      .reduce((acc, i) => {
+        const total = Number(i.monto_total) || 0;
+        const deuda = Number(i.monto_pendiente) || 0;
+        return acc + (total - deuda);
+      }, 0);
+
+    // SUMA TOTAL DE EFECTIVO (Ahora incluye el sobrante de Créditos)
     const ventaEfectivo =
       ventasEfectivoPuro +
       ventasEfectivoDeMixtoTarjeta +
-      ventasEfectivoDeMixtoTransferencia;
+      ventasEfectivoDeMixtoTransferencia +
+      ventasEfectivoDeMixtoCredito;
 
-    // d) Transferencias (Solo la parte digital, guardada en monto_pendiente)
+    // --- Otros Totales ---
     const ventaTransferencia = listaDiaria
       .filter((i) => i.tipo_pago === "transferencia")
       .reduce((acc, i) => acc + (Number(i.monto_pendiente) || 0), 0);
 
-    // e) Tarjetas (Solo la parte digital)
-    const ventaTarjeta = listaDiaria
+    // Tarjeta Total: Lo directo + lo que vino de créditos mixtos
+    const ventaTarjetaDirecta = listaDiaria
       .filter((i) => i.tipo_pago === "tarjeta")
       .reduce((acc, i) => acc + (Number(i.monto_pendiente) || 0), 0);
+    const ventaTarjeta = ventaTarjetaDirecta + ventasTarjetaDeMixtoCredito;
 
     const ventaCredito = listaDiaria
       .filter((i) => i.tipo_pago === "credito")
       .reduce((acc, i) => acc + (Number(i.monto_pendiente) || 0), 0);
 
-    // 3. COBRANZA (Abonos)
     const cobroEfectivo = pagosDiarios
       .filter((p) => p.tipo_pago === "efectivo")
       .reduce((acc, p) => acc + (Number(p.monto_pago) || 0), 0);
@@ -71,7 +91,6 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
       .filter((p) => p.tipo_pago === "tarjeta")
       .reduce((acc, p) => acc + (Number(p.monto_pago) || 0), 0);
 
-    // 4. TOTALES FINALES
     const totalCaja = ventaEfectivo + cobroEfectivo;
     const totalTransferencia = ventaTransferencia + cobroTransferencia;
     const totalTarjeta = ventaTarjeta + cobroTarjeta;
@@ -112,7 +131,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
 
   return (
     <section className="m-auto max-w-6xl p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10 print:grid-cols-3 print:gap-4">
-      {/* TARJETA 1: Balance y Caja */}
+      {/* TARJETA 1: Balance del Turno */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 relative group print:shadow-none print:border-gray-300">
         <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 group-hover:bg-blue-500 transition-colors"></div>
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 print:bg-none print:bg-gray-100 print:text-black">
@@ -174,7 +193,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
         </div>
       </div>
 
-      {/* TARJETA 2: Digital / Bancos */}
+      {/* TARJETA 2: Digital / Bancos / Créditos */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 relative group print:shadow-none print:border-gray-300">
         <div className="absolute top-0 left-0 w-1 h-full bg-purple-600 group-hover:bg-purple-500 transition-colors"></div>
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 print:bg-none print:bg-gray-100">
@@ -218,7 +237,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
               <div className="flex items-center gap-2">
                 <Icon icon="mdi:book-clock" className="text-orange-500" />
                 <span className="text-xs font-bold text-orange-700 uppercase">
-                  Ventas a Crédito
+                  Ventas a Crédito (Deuda)
                 </span>
               </div>
               <span className="font-bold text-gray-700">
@@ -229,7 +248,7 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
         </div>
       </div>
 
-      {/* TARJETA 3: Cobranza (Igual) */}
+      {/* TARJETA 3: Abonos (Igual que antes) */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col md:col-span-2 lg:col-span-1 relative print:shadow-none print:border-gray-300">
         <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
         <div className="bg-gradient-to-r from-teal-500 to-emerald-500 p-4 flex justify-between items-center shrink-0 print:bg-none print:bg-gray-100">
@@ -269,16 +288,29 @@ export const DailySummary = ({ listaDiaria = [], pagosDiarios = [] }) => {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-emerald-600 text-sm">
-                      {formatMoney(pago.monto_pago)}
-                    </p>
-                    <p className="text-[10px] text-gray-400">
-                      {new Date(pago.fecha_pago).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="font-bold text-emerald-600 text-sm">
+                        {formatMoney(pago.monto_pago)}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {new Date(pago.fecha_pago).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+
+                    {onDeletePago && (
+                      <button
+                        onClick={() => onDeletePago(pago.id)}
+                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                        title="Eliminar Abono"
+                      >
+                        <Icon icon="mdi:trash-can-outline" width="18" />
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}

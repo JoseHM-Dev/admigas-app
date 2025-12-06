@@ -89,7 +89,7 @@ export const MainDashboard = () => {
     const { data, error } = await supabase
       .from("carga_casa")
       .select(
-        `id_carga, consumo_litros, ret, monto_total, monto_pendiente , tipo_pago, id_porcentaje, casa_habitacion ( calle, numero, colonia )`
+        `id_carga, consumo_litros, ret, monto_total,tipo_pago_resto, monto_pendiente , tipo_pago, id_porcentaje, casa_habitacion ( calle, numero, colonia )`
       )
       .eq("id_porcentaje", activeTurnoId);
 
@@ -223,6 +223,24 @@ export const MainDashboard = () => {
     if (error) console.error("Error fetching agenda:", error);
     else setAgenda(data);
   }, []);
+
+  // Función para eliminar pago desde el Dashboard
+  const handleDeletePago = async (id_pago) => {
+    if (!confirm("⚠️ ¿Estás seguro de eliminar este abono?\n\nAl eliminarlo:\n1. Se borrará del corte del día.\n2. Se le regresará la deuda al cliente (si aplica).")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.rpc("eliminar_pago_seguro", { p_id_pago: id_pago });
+      if (error) throw error;
+      
+      alert("Abono eliminado correctamente.");
+      fetchPagosDiarios(); // Refrescamos la lista
+    } catch (error) {
+      console.error(error);
+      alert("Error eliminando: " + error.message);
+    }
+  };
 
   const refreshData = useCallback(() => {
     verificarEstadoFinDeDia();
@@ -556,7 +574,7 @@ export const MainDashboard = () => {
         )}
       </section>
 
-      <DailySummary listaDiaria={listaDiaria} pagosDiarios={pagosDiarios} />
+      <DailySummary listaDiaria={listaDiaria} pagosDiarios={pagosDiarios} onDeletePago={handleDeletePago} />
 
       {/* ... SECCIÓN AGENDA (Sin cambios significativos, se mantiene igual) ... */}
       <section className="m-auto max-w-5xl p-4 mb-10">

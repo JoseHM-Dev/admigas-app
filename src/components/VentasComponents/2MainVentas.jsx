@@ -86,7 +86,7 @@ export const MainVentas = () => {
           .from("carga_casa")
           .select(
             `
-            id_carga, fecha_carga, consumo_litros, ret, monto_total,monto_pendiente, tipo_pago, id_porcentaje,
+            id_carga, fecha_carga, consumo_litros, ret, monto_total,monto_pendiente,tipo_pago_resto, tipo_pago, id_porcentaje,
             casa_habitacion ( calle, numero, colonia )
           `
           )

@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import ModalContrato from "../ui/Modales/ModalContrato";
 import ModalNuevoCliente from "../ui/Modales/ModalNuevoCliente";
 import ModalReporteCliente from "../ui/Modales/ModalReporteCliente";
+import Swal from 'sweetalert2';
 
 export const MainClientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -52,29 +53,82 @@ export const MainClientes = () => {
     setIsNuevoClienteModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    const isConfirmed = window.confirm(
-      "¿Estás seguro de eliminar este cliente y todo su historial?"
-    );
-    if (!isConfirmed) return;
+  const handleDelete = async (id, nombreCliente) => {
+    // 1. ALERTA VISUAL DE ALTO IMPACTO (MODIFICADA PARA MÓVIL)
+    const result = await Swal.fire({
+      title: '¿ELIMINAR CLIENTE?', // Título un poco más corto para móvil
+      // AJUSTE AQUÍ: Agregamos max-height y overflow-y al div contenedor
+      html: `
+        <div style="text-align: left; font-size: 0.9em; max-height: 40vh; overflow-y: auto; padding-right: 5px;">
+          Estás a punto de borrar a: <b>${nombreCliente}</b>.<br/><br/>
+          ⚠️ <b>ESTA ACCIÓN ES DESTRUCTIVA E IRREVERSIBLE:</b>
+          <ul style="list-style: disc; margin-left: 20px; color: #d33; font-weight: bold;">
+            <li>Se borrará todo su historial de ventas.</li>
+            <li>Se eliminarán sus deudas y abonos (Cuentas por Cobrar).</li>
+            <li>Se perderá el registro de su contrato y ubicación GPS.</li>
+          </ul>
+          <br/>
+          Para confirmar, escribe la palabra <b>ELIMINAR</b> abajo:
+        </div>
+      `,
+      icon: 'warning',
+      input: 'text',
+      inputPlaceholder: 'Escribe ELIMINAR',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: '¡Sí, borrar!',
+      cancelButtonText: 'Cancelar',
+      showLoaderOnConfirm: true,
+      
+      // AJUSTES DE CONFIGURACIÓN PARA MÓVIL
+      heightAuto: false, // Importante para que no calcule mal la altura en React
+      scrollbarPadding: false, // Evita saltos visuales
+      
+      preConfirm: (inputValue) => {
+        if (inputValue !== 'ELIMINAR') {
+          Swal.showValidationMessage('Debes escribir la palabra ELIMINAR exactamente.');
+        }
+        return true;
+      },
+      allowOutsideClick: () => !Swal.isLoading()
+    });
 
-    const { error: cargaError } = await supabase
-      .from("carga_casa")
-      .delete()
-      .eq("id_casa", id);
-    if (cargaError) {
-      alert("Error al eliminar cargas.");
-      return;
-    }
+    // 2. SI EL USUARIO CONFIRMÓ Y ESCRIBIÓ BIEN:
+    if (result.isConfirmed) {
+      try {
+        // A) Borrar Cargas (Ventas)
+        const { error: cargaError } = await supabase
+          .from("carga_casa")
+          .delete()
+          .eq("id_casa", id);
+        if (cargaError) throw cargaError;
 
-    const { error: casaError } = await supabase
-      .from("casa_habitacion")
-      .delete()
-      .eq("id_casa", id);
-    if (casaError) {
-      alert("Error al eliminar cliente.");
-    } else {
-      setClientes((curr) => curr.filter((i) => i.id_casa !== id));
+        // B) Borrar Cuentas por Cobrar
+        await supabase.from("cuentas_por_cobrar").delete().eq("id_casa", id);
+
+        // C) Borrar Cliente
+        const { error: casaError } = await supabase
+          .from("casa_habitacion")
+          .delete()
+          .eq("id_casa", id);
+        
+        if (casaError) throw casaError;
+
+        // D) ÉXITO VISUAL
+        Swal.fire(
+          '¡Eliminado!',
+          `El cliente ${nombreCliente} y todos sus datos han sido borrados.`,
+          'success'
+        );
+        
+        // Actualizar estado local
+        setClientes((curr) => curr.filter((i) => i.id_casa !== id));
+
+      } catch (error) {
+        console.error(error);
+        Swal.fire('Error', 'No se pudo eliminar el registro: ' + error.message, 'error');
+      }
     }
   };
 
@@ -272,7 +326,7 @@ export const MainClientes = () => {
 
                     {/* Botón Eliminar */}
                     <button
-                      onClick={() => handleDelete(cliente.id_casa)}
+                      onClick={() => handleDelete(cliente.id_casa, `${cliente.nombre_cliente} ${cliente.apellido_cliente}`)}
                       className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-100"
                     >
                       <Icon icon="mdi:trash-can-outline" width="18" /> Eliminar

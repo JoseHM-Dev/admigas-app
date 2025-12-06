@@ -59,6 +59,7 @@ export default function ModalNuevaVenta({
 
   const [datosUnidad, setDatosUnidad] = useState(null);
   const [listaBancos, setListaBancos] = useState([]);
+  const [tipoPagoResto, setTipoPagoResto] = useState("efectivo"); // NUEVO ESTADO
 
   // --- EFECTOS (Carga de datos y cálculos) ---
   useEffect(() => {
@@ -97,6 +98,10 @@ export default function ModalNuevaVenta({
       setFechaProximaCarga(venta.fecha_proxima_carga || "");
       setComentarioProximaCarga("");
       if (venta.id_porcentaje) setIdPorcentajeActual(venta.id_porcentaje);
+      
+      // NUEVO: Recuperar el tipo de pago resto si se está editando
+      setTipoPagoResto(venta.tipo_pago_resto || "efectivo");
+
       setSearchTerm("");
       setSelectedCasaId(null);
       setSelectedClient(null);
@@ -131,7 +136,6 @@ export default function ModalNuevaVenta({
   // --- AUTO-LLENADO DE MONTOS ---
   useEffect(() => {
     if (montoTotal > 0) {
-      // Si es Credito, Transferencia o Tarjeta, sugerimos el total por defecto
       if (["credito", "transferencia", "tarjeta"].includes(tipoPago)) {
         setMontoPendiente(montoTotal.toFixed(2));
       } else {
@@ -197,6 +201,7 @@ export default function ModalNuevaVenta({
     setNuevoContrato(null);
     setIsModalNuevoClienteOpen(false);
     setFacturaUrl(null);
+    setTipoPagoResto("efectivo");
   };
 
   const handleClose = () => {
@@ -220,8 +225,8 @@ export default function ModalNuevaVenta({
     const totalRedondeado = Number(montoTotal.toFixed(2));
     const pendienteRedondeado = montoPendiente ? Number(parseFloat(montoPendiente).toFixed(2)) : 0;
 
-    // Validación para Tarjeta y Transferencia mixta
-    if ((tipoPago === 'tarjeta' || tipoPago === 'transferencia') && pendienteRedondeado > totalRedondeado) {
+    // Validación para Tarjeta, Transferencia y CREDITO mixtos
+    if ((tipoPago === 'tarjeta' || tipoPago === 'transferencia' || tipoPago === 'credito') && pendienteRedondeado > totalRedondeado) {
         alert(`El monto en ${tipoPago} ($${pendienteRedondeado}) no puede ser mayor al total de la venta ($${totalRedondeado}).`);
         return null;
     }
@@ -234,6 +239,8 @@ export default function ModalNuevaVenta({
       monto_total: montoTotal,
       estado_pago: false,
       tipo_pago: tipoPago,
+      // NUEVO: Guardamos dónde se fue el resto
+      tipo_pago_resto: tipoPagoResto,
       // monto_pendiente guarda lo que NO es efectivo
       monto_pendiente: montoPendiente ? parseFloat(montoPendiente) : 0,
       id_porcentaje: idPorcentajeActual,
@@ -266,12 +273,11 @@ export default function ModalNuevaVenta({
                    descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Editado)`
                })
                .eq("id_carga", resultId)
-               .select(); // IMPORTANTE: .select() nos dice si encontró algo
+               .select(); 
              
              if (errorMov) console.error("Error actualizando movimiento:", errorMov);
 
-             // B) SI NO ENCONTRÓ NADA (movData vacío), significa que es venta vieja o era efectivo
-             // ENTONCES LA CREAMOS DE CERO:
+             // B) SI NO ENCONTRÓ NADA (movData vacío)
              if (!movData || movData.length === 0) {
                   const { error: rpcError } = await supabase.rpc(
                     "registrar_movimiento_credito",
@@ -434,7 +440,7 @@ export default function ModalNuevaVenta({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all duration-300">
         <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
+          <div className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 flex justify-between items-center shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
                 <Icon
@@ -592,7 +598,7 @@ export default function ModalNuevaVenta({
               </div>
 
               {/* TOTAL */}
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-100 border border-emerald-200 rounded-xl p-5 my-6 flex justify-between items-center shadow-sm">
+              <div className="bg-linear-to-br from-emerald-50 to-teal-100 border border-emerald-200 rounded-xl p-5 my-6 flex justify-between items-center shadow-sm">
                 <div>
                   <h4 className="text-emerald-800 text-sm font-bold uppercase tracking-wider">
                     Monto Total Venta
@@ -609,7 +615,7 @@ export default function ModalNuevaVenta({
                 </div>
               </div>
 
-              {/* --- LOGICA DE PAGO MIXTA (TARJETA Y TRANSFERENCIA) --- */}
+              {/* --- LOGICA DE PAGO MIXTA (TARJETA Y TRANSFERENCIA Y CREDITO) --- */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="group">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
@@ -642,20 +648,16 @@ export default function ModalNuevaVenta({
                         : tipoPago === "transferencia"
                         ? "Monto de Transferencia"
                         : tipoPago === "credito"
-                        ? "Monto a Crédito (Deuda)"
+                        ? "Monto a Crédito (Deuda)" // Lo que pongan aquí se va a Deuda
                         : "Monto Pendiente"
                     }
                     icon={
-                      tipoPago === "tarjeta"
-                        ? "mdi:credit-card-check"
-                        : tipoPago === "transferencia"
-                        ? "mdi:bank-transfer-in"
-                        : "mdi:cash-clock"
+                        // ... iconos ...
+                        tipoPago === "credito" ? "mdi:book-open-page-variant" : "mdi:cash-clock"
                     }
                     type="number"
                     value={montoPendiente}
                     onChange={(e) => setMontoPendiente(e.target.value)}
-                    // Habilitado para Credito, Tarjeta y Transferencia
                     disabled={tipoPago === "efectivo"}
                     className={
                       tipoPago === "efectivo"
@@ -664,7 +666,24 @@ export default function ModalNuevaVenta({
                     }
                   />
 
-                  {/* FEEDBACK VISUAL PARA PAGOS MIXTOS (TARJETA O TRANSFERENCIA) */}
+                  {/* SELECTOR EXTRA: SOLO APARECE SI ES CRÉDITO Y SOBRA DINERO */}
+                  {tipoPago === "credito" && montoTotal > 0 && (montoTotal - (parseFloat(montoPendiente)||0)) > 0 && (
+                      <div className="mt-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100 animate-in fade-in">
+                          <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1">
+                              ¿Cómo paga la diferencia (${(montoTotal - (parseFloat(montoPendiente)||0)).toFixed(2)})?
+                          </label>
+                          <select
+                              value={tipoPagoResto}
+                              onChange={(e) => setTipoPagoResto(e.target.value)}
+                              className="block w-full text-sm py-1 px-2 border border-indigo-200 rounded text-indigo-700 font-bold focus:outline-none focus:border-indigo-500"
+                          >
+                              <option value="efectivo">En Efectivo (Caja)</option>
+                              <option value="tarjeta">Con Tarjeta (Banco)</option>
+                          </select>
+                      </div>
+                  )}
+
+                  {/* FEEDBACK VISUAL PARA PAGOS MIXTOS */}
                   {(tipoPago === "tarjeta" || tipoPago === "transferencia") &&
                     montoTotal > 0 && (
                       <div className="absolute -bottom-6 right-0 text-[10px] font-bold text-gray-500">
@@ -712,7 +731,7 @@ export default function ModalNuevaVenta({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-6 py-2.5 rounded-lg text-white font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-lg text-white font-medium bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg flex items-center gap-2"
                 >
                   {isSaving ? "Guardando..." : venta ? "Actualizar" : "Guardar"}
                 </button>
@@ -734,7 +753,7 @@ export default function ModalNuevaVenta({
           facturaUrl={facturaUrl}
           clienteTelefono={selectedClient?.telefono || ""}
         />
-        {/* Ticket oculto (igual que antes) */}
+        
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <div ref={ticketRef} style={ticketStyles.ticketContainer}>
             <div style={ticketStyles.ticketHeaderBg}>
@@ -747,7 +766,7 @@ export default function ModalNuevaVenta({
                 <span>Forma de Pago:</span>
                 <strong>
                   {tipoPago}{" "}
-                  {(tipoPago === "tarjeta" || tipoPago === "transferencia") &&
+                  {(tipoPago === "tarjeta" || tipoPago === "transferencia" || tipoPago === "credito") &&
                   efectivoRestante > 0
                     ? "(MIXTO)"
                     : ""}
