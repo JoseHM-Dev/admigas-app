@@ -63,7 +63,140 @@ const ModalNuevoCliente = ({
     ? clienteToEdit?.id_contrato
     : contrato?.id_contrato;
 
-  // --- FUNCIÓN PARA OBTENER UBICACIÓN ACTUAL (CORREGIDA) ---
+  // --- FUNCIÓN INTELIGENTE DE GEOCODING (CASCADA) ---
+  const actualizarDatosConCoordenadas = async (lat, lng) => {
+    // 1. Actualización visual inmediata de coordenadas
+    setCliente((prev) => ({ ...prev, latitud: lat, longitud: lng }));
+    setCargandoDireccion(true);
+
+    // --- NIVEL 1: GOOGLE MAPS (Premium / Limitado por Cuota) ---
+    const intentarGoogle = async () => {
+      // ⚠️ IMPORTANTE: PEGA TU API KEY AQUÍ ABAJO
+      const apiKey = "AIzaSyCD7MQboidFIhIh7-PzMYrwNINpHYW43l4"; 
+      
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}&language=es-419`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Si Google devuelve error (ej. OVER_QUERY_LIMIT), lanzamos error para ir al siguiente nivel
+        if (data.status !== "OK") {
+          throw new Error(`Google Maps Error: ${data.status}`);
+        }
+
+        const result = data.results[0]; // El primer resultado es el más preciso
+        const comps = result.address_components;
+
+        // Helper para extraer datos de Google
+        const getComponent = (type) => 
+          comps.find((c) => c.types.includes(type))?.long_name || "";
+
+        return {
+          calle: getComponent("route"),
+          numero: getComponent("street_number"),
+          // En México: sublocality suele ser Colonia
+          colonia: getComponent("sublocality") || getComponent("neighborhood") || getComponent("sublocality_level_1") || "",
+          delegacion: getComponent("locality") || getComponent("administrative_area_level_2") || "",
+          cp: getComponent("postal_code"),
+          exito: true
+        };
+      } catch (err) {
+        return { exito: false, error: err.message };
+      }
+    };
+
+    // --- NIVEL 2: NOMINATIM (Respaldo Alta Precisión) ---
+    const intentarNominatim = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=es-MX`;
+
+      try {
+        const response = await fetch(url, {
+            headers: { "User-Agent": "AdmiGasLP/1.0" },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) throw new Error("Nominatim Error");
+        const data = await response.json();
+        if (data.error) throw new Error("Nominatim Data Error");
+
+        const addr = data.address;
+        return {
+          calle: addr.road || addr.pedestrian || addr.path || "",
+          numero: "", // Nominatim no es fiable con números, mejor dejar vacío
+          colonia: addr.neighbourhood || addr.suburb || addr.quarter || addr.hamlet || "",
+          delegacion: addr.city_district || addr.county || addr.municipality || addr.city || "",
+          cp: addr.postcode || "",
+          exito: true
+        };
+      } catch (err) {
+        return { exito: false, error: err.message };
+      }
+    };
+
+    // --- NIVEL 3: BIGDATACLOUD (Emergencia) ---
+    const intentarBigDataCloud = async () => {
+      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=es`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return {
+          calle: data.street || data.route || "",
+          numero: "",
+          colonia: data.locality || data.suburb || "",
+          delegacion: data.city || data.principalSubdivision || "",
+          cp: data.postcode || "",
+          exito: true
+        };
+      } catch (err) {
+        return { exito: false, error: err.message };
+      }
+    };
+
+    // --- ORQUESTADOR (Cascada) ---
+    try {
+      // Intento 1: Google
+      let resultado = await intentarGoogle();
+
+      // Intento 2: Nominatim (Si Google falla o se acaba la cuota)
+      if (!resultado.exito) {
+        console.warn(`⚠️ Google falló (${resultado.error}). Usando Nominatim...`);
+        resultado = await intentarNominatim();
+      }
+
+      // Intento 3: BigDataCloud (Si todo lo demás falla)
+      if (!resultado.exito) {
+        console.warn(`⚠️ Nominatim falló (${resultado.error}). Usando BigDataCloud...`);
+        resultado = await intentarBigDataCloud();
+      }
+
+      // Aplicar datos encontrados
+      if (resultado.exito) {
+        setCliente((prev) => ({
+          ...prev,
+          latitud: lat,
+          longitud: lng,
+          calle: resultado.calle || prev.calle || "",
+          // Solo sobrescribimos número si Google lo encontró, si no, mantenemos el previo
+          numero: resultado.numero || prev.numero || "", 
+          colonia: resultado.colonia || prev.colonia || "",
+          delegacion: resultado.delegacion || prev.delegacion || "",
+          cp: resultado.cp || prev.cp || "",
+        }));
+      } else {
+        console.error("❌ Todos los servicios de mapas fallaron.");
+      }
+    } catch (error) {
+      console.error("Error crítico en geocoding:", error);
+    } finally {
+      setCargandoDireccion(false);
+    }
+  };
+
+  // --- OBTENER UBICACIÓN GPS ---
   const obtenerUbicacionActual = React.useCallback(() => {
     setBuscandoUbicacion(true);
 
@@ -83,18 +216,9 @@ const ModalNuevoCliente = ({
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setMapPosition([latitude, longitude]);
-
-        // CORRECCIÓN: Usamos 'prev' para leer el estado anterior
-        // y eliminamos las dependencias de cliente.latitud/longitud del array final
-        setCliente((prev) => {
-          // Lógica: Si NO estamos editando, O SI estamos editando pero no hay coordenadas...
-          // (Aunque si el usuario presionó el botón manualmente, probablemente quiera actualizar siempre)
-          if (!isEditMode || (!prev.latitud && !prev.longitud)) {
-            return { ...prev, latitud: latitude, longitud: longitude };
-          }
-          // Si quieres forzar la actualización siempre que se llame a esta función (recomendado para el botón GPS):
-          return { ...prev, latitud: latitude, longitud: longitude };
-        });
+        
+        // Al encontrar GPS, también buscamos la dirección automáticamente
+        actualizarDatosConCoordenadas(latitude, longitude); 
 
         setBuscandoUbicacion(false);
       },
@@ -119,29 +243,22 @@ const ModalNuevoCliente = ({
       },
       options
     );
-  }, [isEditMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Dependencias vacías para evitar loops, la función interna maneja lo necesario
 
-  // --- EFECTO PRINCIPAL DE APERTURA ---
+  // --- EFECTO DE APERTURA ---
   useEffect(() => {
     if (isOpen) {
       if (isEditMode && clienteToEdit) {
         setCliente(clienteToEdit);
-
-        // LÓGICA CORREGIDA PARA EDICIÓN:
-        // Verificamos si tiene lat/lon válidos (distintos de null y 0)
         const lat = parseFloat(clienteToEdit.latitud);
         const lng = parseFloat(clienteToEdit.longitud);
 
         if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
-          // Si tiene ubicación guardada, ponemos el mapa AHÍ
-          console.log("📍 Cargando ubicación guardada:", lat, lng);
           setMapPosition([lat, lng]);
-        } else {
-          // Si es modo edición pero NO tiene mapa guardado, buscamos GPS
-          //obtenerUbicacionActual();
         }
       } else {
-        // CLIENTE NUEVO: Resetear y buscar ubicación GPS
+        // Nuevo cliente
         setCliente({
           nombre_cliente: "",
           apellido_cliente: "",
@@ -176,17 +293,13 @@ const ModalNuevoCliente = ({
   const MapEventsAndUpdater = ({ position }) => {
     const map = useMap();
 
-    // Este efecto se asegura de mover el mapa cuando cambia la posición
     useEffect(() => {
       if (position) {
-        // Truco: invalidar tamaño para asegurar que cargue bien dentro del modal
         map.invalidateSize();
-        // Volar a la posición guardada o actual
         map.flyTo(position, 16, { duration: 1.5 });
       }
     }, [position, map]);
 
-    // Manejar clics en el mapa para mover el pin
     useMapEvents({
       click(e) {
         const { lat, lng } = e.latlng;
@@ -198,62 +311,11 @@ const ModalNuevoCliente = ({
     return position ? <Marker position={position} /> : null;
   };
 
-  // --- FUNCIÓN CORREGIDA PARA EVITAR ERROR CORS/503 ---
-  const actualizarDatosConCoordenadas = async (lat, lng) => {
-    // 1. Actualizamos coordenadas visuales inmediatamente
-    setCliente((prev) => ({ ...prev, latitud: lat, longitud: lng }));
-    setCargandoDireccion(true);
-
-    try {
-      // OPCIÓN A: Nominatim (Suele fallar en localhost por políticas estrictas)
-      // const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-      
-      // OPCIÓN B: BigDataCloud (Más estable para desarrollo y localhost, sin CORS strict)
-      // Usamos esta para evitar tu error actual:
-      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=es`;
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error("No se pudo obtener la dirección automática.");
-      }
-
-      const data = await response.json();
-
-      // Mapeo de datos (La estructura de BigDataCloud es ligeramente diferente pero muy clara)
-      if (data) {
-        setCliente((prev) => ({
-          ...prev,
-          latitud: lat,
-          longitud: lng,
-          // Intentamos llenar los campos con lo que encontremos
-          calle: data.street || data.route || prev.calle || "", 
-          // Nota: Esta API a veces no da el número exacto por privacidad, dejamos el previo
-          numero: prev.numero || "", 
-          colonia: data.locality || data.suburb || prev.colonia || "",
-          cp: data.postcode || prev.cp || "",
-          delegacion: data.city || data.principalSubdivision || prev.delegacion || "",
-        }));
-      }
-    } catch (error) {
-      console.warn("⚠️ No se pudo autocompletar la dirección (puedes llenarla manual):", error);
-      // No mostramos alerta al usuario para no interrumpir, solo dejamos que llene manual
-    } finally {
-      setCargandoDireccion(false);
-    }
-  };
-
   // --- GUARDADO ---
   const guardarDatosEnBD = async () => {
-    if (isEditMode) {
-      if (!clienteToEdit.id_casa) throw new Error("No ID cliente.");
-    } else {
-      if (!idContrato) throw new Error("No ID contrato.");
-    }
-    if (!cliente.nombre_cliente) {
-      // Calle ya no es obligatoria estricta si ponen pin
-      throw new Error("El nombre es obligatorio.");
-    }
+    if (isEditMode && !clienteToEdit.id_casa) throw new Error("No ID cliente.");
+    if (!isEditMode && !idContrato) throw new Error("No ID contrato.");
+    if (!cliente.nombre_cliente) throw new Error("El nombre es obligatorio.");
 
     const datosAGuardar = {
       ...cliente,
@@ -310,10 +372,7 @@ const ModalNuevoCliente = ({
     if (!isEditMode) {
       if (window.confirm("¿Cancelar? Se eliminará el contrato creado.")) {
         try {
-          await supabase
-            .from("contrato")
-            .delete()
-            .eq("id_contrato", idContrato);
+          await supabase.from("contrato").delete().eq("id_contrato", idContrato);
         } catch (error) {
           console.error(error);
         } finally {
@@ -335,9 +394,7 @@ const ModalNuevoCliente = ({
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
               <Icon
-                icon={
-                  isEditMode ? "mdi:account-edit" : "mdi:map-marker-account"
-                }
+                icon={isEditMode ? "mdi:account-edit" : "mdi:map-marker-account"}
                 className="text-white w-7 h-7"
               />
             </div>
@@ -370,7 +427,7 @@ const ModalNuevoCliente = ({
               </span>
               {cargandoDireccion ? (
                 <span className="text-xs text-indigo-400 flex items-center gap-1 animate-pulse">
-                  <Icon icon="line-md:loading-loop" /> Buscando dirección...
+                  <Icon icon="line-md:loading-loop" /> Obteniendo dirección exacta...
                 </span>
               ) : buscandoUbicacion ? (
                 <span className="text-xs text-green-600 flex items-center gap-1 animate-pulse">
@@ -391,9 +448,7 @@ const ModalNuevoCliente = ({
               <Icon
                 icon="mdi:crosshairs-gps"
                 width="24"
-                className={
-                  buscandoUbicacion ? "animate-spin text-blue-500" : ""
-                }
+                className={buscandoUbicacion ? "animate-spin text-blue-500" : ""}
               />
             </button>
 
@@ -404,9 +459,10 @@ const ModalNuevoCliente = ({
                 scrollWheelZoom={true}
                 style={{ height: "100%", width: "100%" }}
               >
+                {/* ESTILO NUEVO: CartoDB Voyager (Limpio) */}
                 <TileLayer
-                  attribution="&copy; OSM"
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                 />
                 <MapEventsAndUpdater position={mapPosition} />
               </MapContainer>
