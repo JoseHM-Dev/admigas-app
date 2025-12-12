@@ -13,6 +13,13 @@ const getLocalDateString = () => {
   return adjustedDate.toISOString().split("T")[0];
 };
 
+// Función auxiliar para formatear fecha a DD/MM/AAAA
+const formatDateFriendly = (dateStr) => {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-");
+  return `${day}/${month}/${year}`;
+};
+
 export default function ModalNuevaVenta({
   isOpen,
   onClose,
@@ -26,7 +33,7 @@ export default function ModalNuevaVenta({
   // REFS
   const searchInputRef = useRef(null);
   const ticketRef = useRef(null);
-  const { appUser, user: authUser } = useAuth();
+  const { appUser, user: authUser } = useAuth(); // Obtenemos authUser para la metadata de la imagen
 
   // ESTADOS
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,7 +51,6 @@ export default function ModalNuevaVenta({
   const [montoTotal, setMontoTotal] = useState(0);
   const [tipoPago, setTipoPago] = useState("credito");
 
-  // montoPendiente guardará la parte "NO EFECTIVO" (lo que va a banco, deuda o transferencia)
   const [montoPendiente, setMontoPendiente] = useState("");
 
   const [isSaving, setIsSaving] = useState(false);
@@ -59,9 +65,9 @@ export default function ModalNuevaVenta({
 
   const [datosUnidad, setDatosUnidad] = useState(null);
   const [listaBancos, setListaBancos] = useState([]);
-  const [tipoPagoResto, setTipoPagoResto] = useState("efectivo"); // NUEVO ESTADO
+  const [tipoPagoResto, setTipoPagoResto] = useState("efectivo");
 
-  // --- EFECTOS (Carga de datos y cálculos) ---
+  // --- EFECTOS ---
   useEffect(() => {
     const fetchCurrentTurno = async () => {
       if (idTurnoExterno) {
@@ -98,8 +104,6 @@ export default function ModalNuevaVenta({
       setFechaProximaCarga(venta.fecha_proxima_carga || "");
       setComentarioProximaCarga("");
       if (venta.id_porcentaje) setIdPorcentajeActual(venta.id_porcentaje);
-      
-      // NUEVO: Recuperar el tipo de pago resto si se está editando
       setTipoPagoResto(venta.tipo_pago_resto || "efectivo");
 
       setSearchTerm("");
@@ -133,7 +137,6 @@ export default function ModalNuevaVenta({
     setMontoTotal(total);
   }, [consumoLitros, precioVigente]);
 
-  // --- AUTO-LLENADO DE MONTOS ---
   useEffect(() => {
     if (montoTotal > 0) {
       if (["credito", "transferencia", "tarjeta"].includes(tipoPago)) {
@@ -209,7 +212,7 @@ export default function ModalNuevaVenta({
     onClose();
   };
 
-  // --- GUARDAR (VERSIÓN DEFINITIVA: CREA DEUDA SI NO EXISTE AL EDITAR) ---
+  // --- GUARDAR ---
   const executeSaveVenta = async () => {
     if (!selectedCasaId) {
       alert("Debes buscar y seleccionar un Cliente nuevamente.");
@@ -221,14 +224,21 @@ export default function ModalNuevaVenta({
       return null;
     }
 
-    // --- CORRECCIÓN DE VALIDACIÓN (REDONDEO) ---
     const totalRedondeado = Number(montoTotal.toFixed(2));
-    const pendienteRedondeado = montoPendiente ? Number(parseFloat(montoPendiente).toFixed(2)) : 0;
+    const pendienteRedondeado = montoPendiente
+      ? Number(parseFloat(montoPendiente).toFixed(2))
+      : 0;
 
-    // Validación para Tarjeta, Transferencia y CREDITO mixtos
-    if ((tipoPago === 'tarjeta' || tipoPago === 'transferencia' || tipoPago === 'credito') && pendienteRedondeado > totalRedondeado) {
-        alert(`El monto en ${tipoPago} ($${pendienteRedondeado}) no puede ser mayor al total de la venta ($${totalRedondeado}).`);
-        return null;
+    if (
+      (tipoPago === "tarjeta" ||
+        tipoPago === "transferencia" ||
+        tipoPago === "credito") &&
+      pendienteRedondeado > totalRedondeado
+    ) {
+      alert(
+        `El monto en ${tipoPago} ($${pendienteRedondeado}) no puede ser mayor al total de la venta ($${totalRedondeado}).`
+      );
+      return null;
     }
 
     const ventaData = {
@@ -239,9 +249,7 @@ export default function ModalNuevaVenta({
       monto_total: montoTotal,
       estado_pago: false,
       tipo_pago: tipoPago,
-      // NUEVO: Guardamos dónde se fue el resto
       tipo_pago_resto: tipoPagoResto,
-      // monto_pendiente guarda lo que NO es efectivo
       monto_pendiente: montoPendiente ? parseFloat(montoPendiente) : 0,
       id_porcentaje: idPorcentajeActual,
       fecha_proxima_carga: fechaProximaCarga || null,
@@ -249,11 +257,8 @@ export default function ModalNuevaVenta({
 
     let resultId = null;
     try {
-      // ==============================
-      // CASO 1: EDICIÓN (MODIFICAR)
-      // ==============================
       if (venta && venta.id_carga) {
-        // 1. Actualizar tabla principal (carga_casa)
+        // EDICIÓN
         const { data, error } = await supabase
           .from("carga_casa")
           .update(ventaData)
@@ -263,75 +268,66 @@ export default function ModalNuevaVenta({
         if (error) throw error;
         resultId = data.id_carga;
 
-        // 2. ACTUALIZAR O CREAR LA DEUDA / TRANSFERENCIA
         if (tipoPago === "credito" || tipoPago === "transferencia") {
-             // A) Intentamos actualizar el movimiento existente
-             const { data: movData, error: errorMov } = await supabase
-               .from("movimientos_credito")
-               .update({
-                   monto: parseFloat(montoPendiente),
-                   descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Editado)`
-               })
-               .eq("id_carga", resultId)
-               .select(); 
-             
-             if (errorMov) console.error("Error actualizando movimiento:", errorMov);
+          const { data: movData, error: errorMov } = await supabase
+            .from("movimientos_credito")
+            .update({
+              monto: parseFloat(montoPendiente),
+              descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Editado)`,
+            })
+            .eq("id_carga", resultId)
+            .select();
 
-             // B) SI NO ENCONTRÓ NADA (movData vacío)
-             if (!movData || movData.length === 0) {
-                  const { error: rpcError } = await supabase.rpc(
-                    "registrar_movimiento_credito",
-                    {
-                      p_id_casa: selectedCasaId,
-                      p_tipo: "CARGO",
-                      p_monto: parseFloat(montoPendiente), 
-                      p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Corregido)`,
-                      p_id_carga: resultId,
-                      p_id_turno: idPorcentajeActual,
-                      p_user_id: authUser?.id,
-                      p_app_users_id: appUser?.id,
-                    }
-                  );
-                  if (rpcError) console.error("Error creando deuda en edición:", rpcError);
-             }
-        }
-        
-      } else {
-        // ==============================
-        // CASO 2: NUEVA VENTA (INSERTAR)
-        // ==============================
-        const { data, error } = await supabase.from("carga_casa").insert([ventaData]).select().single();
-        if (error) throw error;
-        resultId = data.id_carga;
-
-        // REGISTRO EN CREDITOS (CUENTAS POR COBRAR) - NUEVO
-        if (tipoPago === "credito" || tipoPago === "transferencia") {
-          const { error: rpcError } = await supabase.rpc(
-            "registrar_movimiento_credito",
-            {
+          if (!movData || movData.length === 0) {
+            await supabase.rpc("registrar_movimiento_credito", {
               p_id_casa: selectedCasaId,
               p_tipo: "CARGO",
-              p_monto: parseFloat(montoPendiente), 
-              p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()}`,
+              p_monto: parseFloat(montoPendiente),
+              p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()} (Corregido)`,
               p_id_carga: resultId,
               p_id_turno: idPorcentajeActual,
               p_user_id: authUser?.id,
               p_app_users_id: appUser?.id,
-            }
-          );
-          if (rpcError) console.error("Error registrando deuda nueva:", rpcError);
+            });
+          }
+        }
+      } else {
+        // NUEVA
+        const { data, error } = await supabase
+          .from("carga_casa")
+          .insert([ventaData])
+          .select()
+          .single();
+        if (error) throw error;
+        resultId = data.id_carga;
+
+        if (tipoPago === "credito" || tipoPago === "transferencia") {
+          await supabase.rpc("registrar_movimiento_credito", {
+            p_id_casa: selectedCasaId,
+            p_tipo: "CARGO",
+            p_monto: parseFloat(montoPendiente),
+            p_descripcion: `Venta Gas ${consumoLitros} Lts (Nota #${resultId}) - ${tipoPago.toUpperCase()}`,
+            p_id_carga: resultId,
+            p_id_turno: idPorcentajeActual,
+            p_user_id: authUser?.id,
+            p_app_users_id: appUser?.id,
+          });
         }
       }
 
-      // Agenda
       if (fechaProximaCarga) {
         await supabase.from("agenda").upsert(
-          [{ id_casa: selectedCasaId, fecha_proxima_carga: fechaProximaCarga, comentario: comentarioProximaCarga }],
+          [
+            {
+              id_casa: selectedCasaId,
+              fecha_proxima_carga: fechaProximaCarga,
+              comentario: comentarioProximaCarga,
+            },
+          ],
           { onConflict: "id_casa" }
         );
       }
       return resultId;
-
     } catch (error) {
       console.error("Error guardando:", error);
       throw error;
@@ -354,6 +350,28 @@ export default function ModalNuevaVenta({
     }
   };
 
+  // --- GENERACIÓN DE IMAGEN / TICKET ---
+  const generateCanvas = async () => {
+    if (!ticketRef.current) return null;
+    try {
+      // Configuraciones para asegurar captura completa
+      const canvas = await html2canvas(ticketRef.current, {
+        scale: 2, // Mayor calidad
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        allowTaint: true,
+        width: ticketRef.current.scrollWidth,
+        height: ticketRef.current.scrollHeight,
+        windowWidth: ticketRef.current.scrollWidth + 100, // Evita recortes
+      });
+      return canvas;
+    } catch (error) {
+      console.error("Error generando canvas", error);
+      return null;
+    }
+  };
+
   const handlePrintFactura = async () => {
     setIsSaving(true);
     try {
@@ -362,15 +380,13 @@ export default function ModalNuevaVenta({
         setIsSaving(false);
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (!ticketRef.current) throw new Error("Error renderizando ticket");
-      const canvas = await html2canvas(ticketRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-        logging: false,
-        allowTaint: true,
-      });
+
+      // Esperar renderizado
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      const canvas = await generateCanvas();
+      if (!canvas) throw new Error("No se pudo generar el ticket");
+
       const blob = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/jpeg", 0.9)
       );
@@ -382,18 +398,16 @@ export default function ModalNuevaVenta({
       const {
         data: { publicUrl },
       } = supabase.storage.from("facturas").getPublicUrl(fileName);
-      await supabase
-        .from("factura_casa")
-        .insert(
-          [
-            {
-              id_carga: idCarga,
-              url: publicUrl,
-              fecha_factura: new Date().toISOString(),
-            },
-          ],
-          { returning: "minimal" }
-        );
+      await supabase.from("factura_casa").insert(
+        [
+          {
+            id_carga: idCarga,
+            url: publicUrl,
+            fecha_factura: new Date().toISOString(),
+          },
+        ],
+        { returning: "minimal" }
+      );
       setFacturaUrl(publicUrl);
       setShowModalFactura(true);
       onVentaGuardada();
@@ -405,9 +419,39 @@ export default function ModalNuevaVenta({
     }
   };
 
+  // NUEVO: DESCARGA DIRECTA
+  const handleDownloadDirect = async () => {
+    if (!selectedCasaId) {
+      alert("Selecciona un cliente y llena los datos primero.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      // Esperar un momento para asegurar que el DOM esté listo visualmente
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const canvas = await generateCanvas();
+      if (canvas) {
+        const link = document.createElement("a");
+        link.download = `Nota_${
+          selectedClient?.nombre_cliente || "Venta"
+        }_${Date.now()}.jpg`;
+        link.href = canvas.toDataURL("image/jpeg", 0.9);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error al descargar la imagen.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Modales Extra
   const handleOpenModalNuevoCliente = async () => {
-    /* logica nuevo cliente */ try {
+    try {
       const todayDate = getLocalDateString();
       const { data, error } = await supabase
         .from("contrato")
@@ -428,10 +472,28 @@ export default function ModalNuevaVenta({
     setNuevoContrato(null);
   };
 
-  // CALCULO VISUAL DE EFECTIVO RESTANTE
   const efectivoRestante = (
     montoTotal - (parseFloat(montoPendiente) || 0)
   ).toFixed(2);
+
+  // LOGICA PARA TELEFONOS EN TICKET
+  const getUnitPhones = () => {
+    if (!datosUnidad) return "Sin datos";
+    const tels = [];
+    if (datosUnidad.telefono_1) tels.push(datosUnidad.telefono_1);
+    // Asumiendo que podría haber otro campo o split por coma
+    return tels.join(" / ");
+  };
+
+  // Lógica para obtener la imagen correcta (Prioridad: authUser > appUser > unidad)
+  const getProfileImage = () => {
+    if (authUser?.user_metadata?.avatar_url)
+      return authUser.user_metadata.avatar_url;
+    if (appUser?.avatar_url) return appUser.avatar_url;
+    if (datosUnidad?.logo_url) return datosUnidad.logo_url;
+    return null;
+  };
+  const userImage = getProfileImage();
 
   if (!isOpen) return null;
 
@@ -615,7 +677,7 @@ export default function ModalNuevaVenta({
                 </div>
               </div>
 
-              {/* --- LOGICA DE PAGO MIXTA (TARJETA Y TRANSFERENCIA Y CREDITO) --- */}
+              {/* TIPO DE PAGO */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="group">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5 ml-1">
@@ -641,19 +703,19 @@ export default function ModalNuevaVenta({
                 {/* Input Dinámico */}
                 <div className="relative">
                   <InputGroup
-                    // ETIQUETAS DINAMICAS SEGUN EL TIPO
                     label={
                       tipoPago === "tarjeta"
                         ? "Monto a Cobrar en Tarjeta"
                         : tipoPago === "transferencia"
                         ? "Monto de Transferencia"
                         : tipoPago === "credito"
-                        ? "Monto a Crédito (Deuda)" // Lo que pongan aquí se va a Deuda
+                        ? "Monto a Crédito (Deuda)"
                         : "Monto Pendiente"
                     }
                     icon={
-                        // ... iconos ...
-                        tipoPago === "credito" ? "mdi:book-open-page-variant" : "mdi:cash-clock"
+                      tipoPago === "credito"
+                        ? "mdi:book-open-page-variant"
+                        : "mdi:cash-clock"
                     }
                     type="number"
                     value={montoPendiente}
@@ -666,24 +728,28 @@ export default function ModalNuevaVenta({
                     }
                   />
 
-                  {/* SELECTOR EXTRA: SOLO APARECE SI ES CRÉDITO Y SOBRA DINERO */}
-                  {tipoPago === "credito" && montoTotal > 0 && (montoTotal - (parseFloat(montoPendiente)||0)) > 0 && (
+                  {tipoPago === "credito" &&
+                    montoTotal > 0 &&
+                    montoTotal - (parseFloat(montoPendiente) || 0) > 0 && (
                       <div className="mt-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100 animate-in fade-in">
-                          <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1">
-                              ¿Cómo paga la diferencia (${(montoTotal - (parseFloat(montoPendiente)||0)).toFixed(2)})?
-                          </label>
-                          <select
-                              value={tipoPagoResto}
-                              onChange={(e) => setTipoPagoResto(e.target.value)}
-                              className="block w-full text-sm py-1 px-2 border border-indigo-200 rounded text-indigo-700 font-bold focus:outline-none focus:border-indigo-500"
-                          >
-                              <option value="efectivo">En Efectivo (Caja)</option>
-                              <option value="tarjeta">Con Tarjeta (Banco)</option>
-                          </select>
+                        <label className="block text-[10px] font-bold text-indigo-800 uppercase mb-1">
+                          ¿Cómo paga la diferencia ($
+                          {(
+                            montoTotal - (parseFloat(montoPendiente) || 0)
+                          ).toFixed(2)}
+                          )?
+                        </label>
+                        <select
+                          value={tipoPagoResto}
+                          onChange={(e) => setTipoPagoResto(e.target.value)}
+                          className="block w-full text-sm py-1 px-2 border border-indigo-200 rounded text-indigo-700 font-bold focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="efectivo">En Efectivo (Caja)</option>
+                          <option value="tarjeta">Con Tarjeta (Banco)</option>
+                        </select>
                       </div>
-                  )}
+                    )}
 
-                  {/* FEEDBACK VISUAL PARA PAGOS MIXTOS */}
                   {(tipoPago === "tarjeta" || tipoPago === "transferencia") &&
                     montoTotal > 0 && (
                       <div className="absolute -bottom-6 right-0 text-[10px] font-bold text-gray-500">
@@ -718,22 +784,39 @@ export default function ModalNuevaVenta({
                 </div>
               </div>
 
-              <div className="mt-8 flex justify-end gap-3">
+              {/* BOTONERA */}
+              <div className="mt-8 flex justify-end gap-3 items-center flex-wrap">
+                {/* Botón Descarga Directa */}
+                <button
+                  type="button"
+                  onClick={handleDownloadDirect}
+                  disabled={isSaving}
+                  className="px-4 py-2.5 rounded-lg border border-green-300 bg-green-50 text-green-700 font-bold hover:bg-green-100 shadow-sm flex items-center gap-2"
+                >
+                  <Icon icon="mdi:download" /> Descargar Imagen
+                </button>
+
+                {/* Botón Guardar en Nube (Original) */}
                 <button
                   type="button"
                   onClick={handlePrintFactura}
                   disabled={isSaving || !selectedCasaId}
                   className="px-5 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 shadow-sm flex items-center gap-2"
                 >
-                  <Icon icon="mdi:printer" />{" "}
-                  {isSaving ? "Generando..." : "Ticket"}
+                  <Icon icon="mdi:cloud-upload" />{" "}
+                  {isSaving ? "Procesando..." : "Guardar Ticket"}
                 </button>
+
                 <button
                   type="submit"
                   disabled={isSaving}
                   className="px-6 py-2.5 rounded-lg text-white font-medium bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg flex items-center gap-2"
                 >
-                  {isSaving ? "Guardando..." : venta ? "Actualizar" : "Guardar"}
+                  {isSaving
+                    ? "Guardando..."
+                    : venta
+                    ? "Actualizar"
+                    : "Guardar Venta"}
                 </button>
               </div>
             </form>
@@ -753,33 +836,258 @@ export default function ModalNuevaVenta({
           facturaUrl={facturaUrl}
           clienteTelefono={selectedClient?.telefono || ""}
         />
-        
-        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+
+        {/* ========================================================================================= */}
+        {/* DISEÑO DEL TICKET PROFESIONAL / VISTOSO */}
+        {/* ========================================================================================= */}
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            zIndex: -50,
+            visibility: "visible",
+          }}
+        >
           <div ref={ticketRef} style={ticketStyles.ticketContainer}>
-            <div style={ticketStyles.ticketHeaderBg}>
-              <h2 style={ticketStyles.ticketTitle}>
-                {datosUnidad?.empresa || "GAS LP"}
-              </h2>
-            </div>
-            <div style={ticketStyles.ticketBody}>
-              <div style={ticketStyles.ticketRow}>
-                <span>Forma de Pago:</span>
-                <strong>
-                  {tipoPago}{" "}
-                  {(tipoPago === "tarjeta" || tipoPago === "transferencia" || tipoPago === "credito") &&
-                  efectivoRestante > 0
-                    ? "(MIXTO)"
-                    : ""}
-                </strong>
+            {/* ENCABEZADO */}
+            <div style={ticketStyles.header}>
+              <div style={ticketStyles.logoContainer}>
+                {userImage ? (
+                  <img
+                    src={userImage}
+                    alt="Logo"
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      objectFit: "cover",
+                      borderRadius: "50%",
+                      border: "4px solid rgba(255,255,255,0.2)",
+                    }}
+                    crossOrigin="anonymous"
+                  />
+                ) : (
+                  <div style={{ fontSize: "50px" }}>⛽</div>
+                )}
               </div>
-              <div style={ticketStyles.ticketRowTotal}>
-                <span>TOTAL:</span>
-                <span>
+
+              <h2 style={ticketStyles.companyName}>
+                {datosUnidad?.empresa || "NOTA DE REMISIÓN"}
+              </h2>
+
+              <div style={ticketStyles.headerInfo}>
+                <div style={ticketStyles.headerBadge}>📞 {getUnitPhones()}</div>
+                <div style={ticketStyles.headerBadge}>
+                  📅 {formatDateFriendly(fecha)}
+                </div>
+              </div>
+            </div>
+
+            <div style={ticketStyles.body}>
+              {/* DATOS CLIENTE */}
+              <div style={ticketStyles.cardSection}>
+                <div style={ticketStyles.sectionTitleRow}>
+                  <span style={ticketStyles.iconCircle}>👤</span>
+                  <span style={ticketStyles.sectionTitle}>CLIENTE</span>
+                </div>
+                <div style={ticketStyles.clientName}>
+                  {selectedClient?.nombre_cliente || "Público General"}
+                </div>
+                <div style={ticketStyles.clientAddress}>
+                  {selectedClient
+                    ? `${selectedClient.calle} #${selectedClient.numero}, ${selectedClient.colonia}`
+                    : "---"}
+                </div>
+              </div>
+
+              {/* DETALLE VENTA */}
+              <div
+                style={{
+                  ...ticketStyles.cardSection,
+                  backgroundColor: "#f8fafc",
+                  borderColor: "#e2e8f0",
+                }}
+              >
+                <div style={ticketStyles.sectionTitleRow}>
+                  <span
+                    style={{
+                      ...ticketStyles.iconCircle,
+                      backgroundColor: "#dbeafe",
+                      color: "#1e40af",
+                    }}
+                  >
+                    ⛽
+                  </span>
+                  <span
+                    style={{ ...ticketStyles.sectionTitle, color: "#1e3a8a" }}
+                  >
+                    DETALLES DE CARGA
+                  </span>
+                </div>
+
+                <div style={ticketStyles.rowDetail}>
+                  <span style={ticketStyles.label}>Litros Suministrados:</span>
+                  <span style={ticketStyles.valueBigBlue}>
+                    {consumoLitros} L
+                  </span>
+                </div>
+                <div style={ticketStyles.rowDetail}>
+                  <span style={ticketStyles.label}>Precio Unitario:</span>
+                  <span style={ticketStyles.value}>
+                    ${Number(precioVigente).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* TOTAL */}
+              <div style={ticketStyles.totalBox}>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    opacity: 0.8,
+                    letterSpacing: "1px",
+                  }}
+                >
+                  TOTAL A PAGAR
+                </span>
+                <span
+                  style={{
+                    fontSize: "32px",
+                    fontWeight: "900",
+                    marginTop: "5px",
+                  }}
+                >
                   $
                   {montoTotal.toLocaleString("es-MX", {
                     minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
                   })}
                 </span>
+                <span
+                  style={{ fontSize: "10px", opacity: 0.9, marginTop: "2px" }}
+                >
+                  M.N.
+                </span>
+              </div>
+
+              {/* TIPO PAGO */}
+              <div style={ticketStyles.paymentInfo}>
+                <span>
+                  Método de Pago:{" "}
+                  <strong style={{ color: "#0f172a" }}>
+                    {tipoPago.toUpperCase()}
+                  </strong>
+                </span>
+                {tipoPago === "credito" && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#dc2626",
+                      marginTop: "4px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    ⚠️ Saldo Pendiente: ${Number(montoPendiente).toFixed(2)}
+                  </div>
+                )}
+              </div>
+
+              {/* PROXIMA CARGA */}
+              {fechaProximaCarga && (
+                <div style={ticketStyles.nextServiceBox}>
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    ⏰ Próxima Carga Sugerida
+                  </span>
+                  <div
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "bold",
+                      marginTop: "5px",
+                      color: "#047857",
+                    }}
+                  >
+                    {formatDateFriendly(fechaProximaCarga)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* PIE DE PAGINA */}
+            <div style={ticketStyles.footer}>
+              {listaBancos.length > 0 && (
+                <div style={ticketStyles.bankSection}>
+                  <div
+                    style={{
+                      fontWeight: "800",
+                      marginBottom: "8px",
+                      fontSize: "11px",
+                      color: "#4b5563",
+                      textAlign: "center",
+                    }}
+                  >
+                    — DATOS PARA TRANSFERENCIA —
+                  </div>
+                  {listaBancos.slice(0, 1).map((banco, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        fontSize: "11px",
+                        lineHeight: "1.6",
+                        color: "#374151",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>🏦 Banco:</span>
+                        <strong>{banco.banco}</strong>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>💳 CLABE:</span>
+                        <strong>{banco.clave_int || banco.cuenta}</strong>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>👤 Beneficiario:</span>
+                        <strong>{banco.nom_responsable}</strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={ticketStyles.thankYou}>
+                ¡GRACIAS POR SU PREFERENCIA!
+              </div>
+
+              <div
+                style={{
+                  fontSize: "9px",
+                  color: "#9ca3af",
+                  marginTop: "12px",
+                  fontStyle: "italic",
+                }}
+              >
+                Comprobante generado | {new Date().toLocaleTimeString()}
               </div>
             </div>
           </div>
@@ -806,31 +1114,178 @@ const InputGroup = ({ label, icon, className = "", ...props }) => (
   </div>
 );
 
+// ESTILOS EN JS PARA EL TICKET "VISTOSO"
 const ticketStyles = {
   ticketContainer: {
-    width: "400px",
+    width: "480px",
     backgroundColor: "#ffffff",
-    color: "#1f2937",
-    border: "1px solid #e5e7eb",
+    fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    color: "#334155",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    border: "1px solid #cbd5e1",
+    borderBottom: "6px solid #2563eb", // Borde inferior de color
   },
-  ticketHeaderBg: {
-    backgroundColor: "#1F2937",
-    color: "white",
-    padding: "20px",
+  header: {
+    background: "linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)", // Degradado azul intenso
+    color: "#ffffff",
+    padding: "30px 25px",
     textAlign: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    borderBottomLeftRadius: "20px",
+    borderBottomRightRadius: "20px",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
   },
-  ticketTitle: { fontSize: "20px", fontWeight: "800" },
-  ticketBody: { padding: "20px" },
-  ticketRow: {
+  logoContainer: {
+    marginBottom: "15px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    filter: "drop-shadow(0 4px 3px rgba(0,0,0,0.3))",
+  },
+  companyName: {
+    fontSize: "24px",
+    fontWeight: "800",
+    margin: "0 0 15px 0",
+    letterSpacing: "1px",
+    textTransform: "uppercase",
+    textShadow: "0 2px 2px rgba(0,0,0,0.2)",
+  },
+  headerInfo: {
+    display: "flex",
+    gap: "10px",
+    fontSize: "12px",
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  headerBadge: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    padding: "5px 12px",
+    borderRadius: "20px",
+    backdropFilter: "blur(4px)",
+    fontWeight: "600",
+  },
+  body: {
+    padding: "25px",
+  },
+  cardSection: {
+    marginBottom: "15px",
+    border: "1px solid #f1f5f9",
+    borderRadius: "12px",
+    padding: "15px",
+    backgroundColor: "#fff",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+  },
+  sectionTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    marginBottom: "10px",
+    borderBottom: "1px dashed #e2e8f0",
+    paddingBottom: "8px",
+  },
+  iconCircle: {
+    width: "24px",
+    height: "24px",
+    backgroundColor: "#f1f5f9",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+  },
+  sectionTitle: {
+    fontSize: "11px",
+    fontWeight: "800",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+  },
+  clientName: {
+    fontSize: "20px",
+    fontWeight: "800",
+    color: "#1e293b",
+    marginBottom: "4px",
+  },
+  clientAddress: {
+    fontSize: "13px",
+    color: "#64748b",
+    lineHeight: "1.4",
+  },
+  rowDetail: {
     display: "flex",
     justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: "8px",
   },
-  ticketRowTotal: {
+  label: {
+    fontSize: "14px",
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  value: {
+    fontSize: "15px",
+    fontWeight: "700",
+    color: "#334155",
+  },
+  valueBigBlue: {
+    fontSize: "18px",
+    fontWeight: "800",
+    color: "#2563eb",
+  },
+  totalBox: {
+    backgroundColor: "#22c55e", // Verde brillante
+    color: "#ffffff",
+    borderRadius: "12px",
+    padding: "15px",
     display: "flex",
-    justifyContent: "space-between",
-    marginTop: "20px",
-    fontSize: "24px",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "20px 0",
+    boxShadow: "0 4px 6px -1px rgba(34, 197, 94, 0.4)",
+  },
+  paymentInfo: {
+    backgroundColor: "#f8fafc",
+    padding: "12px",
+    borderRadius: "8px",
+    textAlign: "center",
+    fontSize: "13px",
+    color: "#475569",
+    border: "1px solid #e2e8f0",
+  },
+  nextServiceBox: {
+    marginTop: "15px",
+    backgroundColor: "#ecfdf5",
+    color: "#065f46",
+    padding: "12px",
+    borderRadius: "8px",
+    textAlign: "center",
+    border: "1px dashed #10b981",
+  },
+  footer: {
+    backgroundColor: "#f8fafc",
+    padding: "25px",
+    textAlign: "center",
+    borderTop: "1px solid #e2e8f0",
+  },
+  thankYou: {
+    fontSize: "14px",
     fontWeight: "900",
+    color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: "2px",
+    marginTop: "20px",
+  },
+  bankSection: {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e2e8f0",
+    padding: "15px",
+    borderRadius: "10px",
+    textAlign: "left",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
   },
 };
