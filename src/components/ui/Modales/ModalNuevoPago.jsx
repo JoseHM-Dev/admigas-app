@@ -1,7 +1,8 @@
+// ModalNuevoPago.jsx
 import React, { useState, useEffect } from "react";
-import  {supabase}  from "../../../supabaseClient";
+import { supabase } from "../../../supabaseClient";
 import { Icon } from "@iconify/react";
-import { useAuth } from "../../../auth/useAuth"; // Asumiendo que tienes user aquí
+import { useAuth } from "../../../auth/useAuth";
 
 export const ModalNuevoPago = ({ isOpen, onClose, onPagoGuardado, cuenta }) => {
   const { user, appUser } = useAuth();
@@ -10,7 +11,6 @@ export const ModalNuevoPago = ({ isOpen, onClose, onPagoGuardado, cuenta }) => {
   const [loading, setLoading] = useState(false);
   const [activeTurnoId, setActiveTurnoId] = useState(null);
 
-  // 1. Detectar turno activo para el Dashboard (Req #4)
   useEffect(() => {
     if (isOpen) {
       setMonto("");
@@ -22,11 +22,18 @@ export const ModalNuevoPago = ({ isOpen, onClose, onPagoGuardado, cuenta }) => {
     const { data } = await supabase
       .from("porcentaje_diario")
       .select("id")
-      .is("porcentaje_final", null) // Turno abierto
+      .is("porcentaje_final", null)
       .order("id", { ascending: false })
       .limit(1)
       .maybeSingle();
     setActiveTurnoId(data?.id || null);
+  };
+
+  // --- FUNCIÓN PARA LIQUIDAR ---
+  const handleLiquidar = () => {
+    if (cuenta && cuenta.saldo_actual) {
+      setMonto(cuenta.saldo_actual.toString());
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -37,33 +44,29 @@ export const ModalNuevoPago = ({ isOpen, onClose, onPagoGuardado, cuenta }) => {
 
     setLoading(true);
     try {
-      // USAMOS LA RPC PARA REGISTRAR ABONO (Req #5: No toca carga_casa)
+      // 1. REGISTRAR EN EL HISTORIAL DEL CLIENTE (Movimientos)
       const { error } = await supabase.rpc("registrar_movimiento_credito", {
         p_id_casa: cuenta.id_casa,
-        p_tipo: "ABONO", // RESTA DEUDA
+        p_tipo: "ABONO",
         p_monto: parseFloat(monto),
         p_descripcion: `Abono vía ${tipoPago}`,
         p_id_carga: null,
-        p_id_turno: activeTurnoId, // Req #4: Se va al turno actual
+        p_id_turno: activeTurnoId,
         p_user_id: user?.id,
         p_app_users_id: appUser?.id
       });
 
       if (error) throw error;
 
-      // ADICIONAL: Insertar en tabla pagos para que aparezca en el Dashboard (reporte diario)
-      // El Dashboard lee de la tabla 'pagos'. Podemos o bien migrar el dashboard a leer 'movimientos_credito'
-      // o mantener la tabla 'pagos' como espejo simple para el turno.
-      // Opción recomendada: Mantener 'pagos' sincronizada para no romper dashboard ahora.
+      // 2. REGISTRAR EN EL CORTE DE CAJA (Pagos)
+      // IMPORTANTE: Aquí agregamos 'id_cuenta' para que el Dashboard sepa el nombre
       await supabase.from("pagos").insert([
         {
           monto_pago: parseFloat(monto),
           fecha_pago: new Date().toISOString(),
           tipo_pago: tipoPago,
           id_turno: activeTurnoId,
-          // id_carga: null // Ya no ligamos a una carga específica, es un abono general
-          // NOTA: Si tu dashboard requiere id_carga forzosamente, habrá que editar el dashboard
-          // para que sea opcional. Ojo aquí.
+          id_cuenta: cuenta.id // <--- ESTA ES LA CLAVE QUE FALTABA
         },
       ]);
 
@@ -79,59 +82,87 @@ export const ModalNuevoPago = ({ isOpen, onClose, onPagoGuardado, cuenta }) => {
   if (!isOpen) return null;
 
   return (
-    // ... (Tu UI de modal, igual que antes, solo cambia el onSubmit={handleSubmit})
-    // Asegúrate de mostrar: "Saldo Actual: {cuenta.saldo_actual}"
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl w-full max-w-md overflow-hidden">
-        <div className="bg-blue-600 p-4 text-white font-bold flex justify-between">
-          <span>Registrar Abono</span>
-          <button onClick={onClose}>
-            <Icon icon="mdi:close" />
+      <div className="bg-white rounded-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 shadow-2xl">
+        <div className="bg-blue-600 p-4 text-white font-bold flex justify-between items-center">
+          <span className="flex items-center gap-2">
+            <Icon icon="mdi:cash-plus" width="24"/> Registrar Abono
+          </span>
+          <button onClick={onClose} className="hover:bg-white/20 rounded-full p-1 transition">
+            <Icon icon="mdi:close" width="24" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="bg-blue-50 p-3 rounded text-center">
-            <p className="text-xs font-bold text-blue-500 uppercase">
-              Deuda Total
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Tarjeta de Deuda */}
+          <div className="bg-blue-50 p-4 rounded-xl text-center border border-blue-100 shadow-inner">
+            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">
+              Deuda Total Actual
             </p>
-            <p className="text-2xl font-black text-blue-700">
-              ${cuenta?.saldo_actual}
+            <p className="text-3xl font-black text-blue-700">
+              ${Number(cuenta?.saldo_actual).toLocaleString("es-MX")}
             </p>
           </div>
 
-          {/* Input Monto */}
-          <input
-            type="number"
-            step="0.01"
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            className="w-full border p-3 rounded text-xl font-bold"
-            placeholder="$ 0.00"
-            required
-          />
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Monto a Abonar</label>
+            <div className="relative">
+              <span className="absolute left-3 top-3 text-gray-400 font-bold">$</span>
+              <input
+                type="number"
+                step="0.01"
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                className="w-full border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 p-3 pl-8 rounded-lg text-xl font-bold outline-none transition-all"
+                placeholder="0.00"
+                required
+              />
+              {/* BOTÓN LIQUIDAR DENTRO DEL INPUT */}
+              <button
+                type="button"
+                onClick={handleLiquidar}
+                className="absolute right-2 top-2 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded hover:bg-blue-200 transition-colors uppercase"
+              >
+                Liquidar
+              </button>
+            </div>
+          </div>
 
-          {/* Select Tipo */}
-          <select
-            value={tipoPago}
-            onChange={(e) => setTipoPago(e.target.value)}
-            className="w-full border p-3 rounded"
-          >
-            <option value="efectivo">Efectivo</option>
-            <option value="transferencia">Transferencia</option>
-            <option value="tarjeta">Tarjeta</option>
-          </select>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Método de Pago</label>
+            <div className="relative">
+               <div className="absolute left-3 top-3 text-gray-400">
+                 <Icon icon="mdi:credit-card-outline" width="20"/>
+               </div>
+              <select
+                value={tipoPago}
+                onChange={(e) => setTipoPago(e.target.value)}
+                className="w-full border border-gray-300 bg-white p-3 pl-10 rounded-lg outline-none focus:border-blue-500 font-medium text-gray-700 cursor-pointer appearance-none"
+              >
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="tarjeta">Tarjeta</option>
+              </select>
+            </div>
+          </div>
 
           {activeTurnoId && (
-            <p className="text-xs text-green-600 font-bold text-center">
-              ✅ Se registrará en el turno actual.
-            </p>
+            <div className="flex items-center justify-center gap-2 text-xs text-green-600 font-bold bg-green-50 p-2 rounded-lg border border-green-100">
+              <Icon icon="mdi:check-circle" /> Se registrará en el turno actual.
+            </div>
           )}
 
           <button
             disabled={loading}
-            className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700"
+            className="w-full bg-linear-to-r from-green-600 to-emerald-600 text-white py-3.5 rounded-xl font-bold hover:shadow-lg hover:to-emerald-700 transition-all transform active:scale-95 flex justify-center items-center gap-2"
           >
-            {loading ? "Procesando..." : "Aplicar Pago"}
+            {loading ? (
+              <Icon icon="line-md:loading-loop" width="24"/>
+            ) : (
+              <>
+                <Icon icon="mdi:check" width="24" /> Aplicar Abono
+              </>
+            )}
           </button>
         </form>
       </div>

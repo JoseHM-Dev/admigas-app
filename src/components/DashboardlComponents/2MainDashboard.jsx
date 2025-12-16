@@ -112,37 +112,73 @@ export const MainDashboard = () => {
     }
 
     try {
-      const { data, error } = await supabase
+      // PASO 1: Traer los pagos y la info de ventas de contado (carga_casa)
+      // Traemos '*' de pagos para asegurarnos de tener el campo 'id_cuenta' disponible
+      const { data: pagosData, error } = await supabase
         .from("pagos")
-        .select(
-          `
-          id,
-          monto_pago,
-          tipo_pago,
-          fecha_pago,
+        .select(`
+          *,
           carga_casa (
-            casa_habitacion ( calle, numero, nombre_cliente)
+            casa_habitacion ( nombre_cliente )
           )
-        `
-        )
-        // CORRECCIÓN AQUÍ: Usar "id_turno" en lugar de "id_porcentaje"
+        `)
         .eq("id_turno", activeTurnoId);
 
-      if (error) {
-        console.error("Error fetching pagos diarios:", error);
-        setPagosDiarios([]);
+      if (error) throw error;
+
+      let pagosFinales = pagosData || [];
+
+      // PASO 2: Identificar abonos de crédito que necesitan nombre
+      // Buscamos pagos que NO tengan carga_casa (son créditos) y que sí tengan un id_cuenta
+      const idsCuentas = pagosFinales
+        .filter((p) => !p.carga_casa && p.id_cuenta) 
+        .map((p) => p.id_cuenta);
+
+      // Si encontramos abonos de crédito, buscamos sus nombres en una segunda consulta
+      if (idsCuentas.length > 0) {
+        // Eliminamos duplicados para optimizar
+        const idsUnicos = [...new Set(idsCuentas)];
+
+        const { data: cuentasData } = await supabase
+          .from("cuentas_por_cobrar")
+          .select(`
+            id,
+            casa_habitacion ( nombre_cliente )
+          `)
+          .in("id", idsUnicos);
+
+        // Creamos un "diccionario" para búsqueda rápida: { id_cuenta: "Juan Perez" }
+        const mapaNombres = {};
+        if (cuentasData) {
+          cuentasData.forEach((c) => {
+            mapaNombres[c.id] = c.casa_habitacion?.nombre_cliente;
+          });
+        }
+
+        // PASO 3: Combinar todo
+        pagosFinales = pagosFinales.map((p) => {
+          // Opción A: Es venta de contado
+          const nombreVenta = p.carga_casa?.casa_habitacion?.nombre_cliente;
+          // Opción B: Es abono (buscamos en nuestro diccionario)
+          const nombreAbono = p.id_cuenta ? mapaNombres[p.id_cuenta] : null;
+
+          return {
+            ...p,
+            nombre_cliente: nombreVenta || nombreAbono || "Cliente / Abono",
+            apellidos_cliente: "",
+          };
+        });
       } else {
-        const pagosFormateados = data.map((p) => ({
+        // Si no hay créditos, solo formateamos los de contado
+        pagosFinales = pagosFinales.map((p) => ({
           ...p,
-          // Si es un abono de crédito, no tiene carga_casa, así que mostramos "Abono a Crédito"
-          nombre_cliente:
-            p.carga_casa?.casa_habitacion?.nombre_cliente || "Abono a Crédito",
-          apellidos_cliente: "",
+          nombre_cliente: p.carga_casa?.casa_habitacion?.nombre_cliente || "Cliente",
         }));
-        setPagosDiarios(pagosFormateados);
       }
+
+      setPagosDiarios(pagosFinales);
     } catch (err) {
-      console.error(err);
+      console.error("Error cargando pagos:", err);
     }
   }, [activeTurnoId]);
 

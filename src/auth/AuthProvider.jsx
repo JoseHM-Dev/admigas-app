@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // Intenta obtener la sesión activa al cargar el componente
+    // 1. Carga inicial
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       setSession(currentSession);
       if (currentSession) {
@@ -77,22 +77,44 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Escucha los cambios en el estado de autenticación (login/logout)
+    // 2. Listener de cambios de auth
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
+        // Aquí está el truco:
+        // Solo mostramos el loader y hacemos fetch si la sesión cambió DE VERDAD (ej. login/logout)
+        // O si es la primera vez que obtenemos datos.
+        
+        // Comparamos los IDs directamente de la nueva sesión vs el estado actual (usando una función de actualización para acceder al estado fresco si fuera necesario, pero aquí newSession es la autoridad).
+        
         setSession(newSession);
+
         if (newSession) {
+          // Si el evento es TOKEN_REFRESHED o SIGNED_IN (pero ya estabamos dentro), 
+          // a veces no queremos recargar todo si ya tenemos datos.
+          
+          // Pero para simplificar y evitar el error de ESLint:
+          // Simplemente llamamos a fetchUserData. 
+          // LA CLAVE es que el fetchUserData maneja el 'loadingPersonal' 
+          // y nuestra UI (el return de abajo) decide si bloquear la pantalla o no.
+          
           fetchUserData(newSession);
+        } else {
+          // Si no hay sesión (logout), limpiamos todo
+          setAppUser(null);
+          setPersonal(null);
+          setUnidad(null);
+          setDatosBancarios(null);
+          setTarifa(null);
         }
+        
         setLoading(false);
       }
     );
 
-    // Limpia el listener cuando el componente se desmonta
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchUserData]);
+  }, [fetchUserData]); // Solo dependemos de fetchUserData (que usa useCallback)
 
   const value = {
     session,
@@ -122,8 +144,9 @@ export const AuthProvider = ({ children }) => {
     fetchUserData: () => fetchUserData(session),
   };
 
-  // Muestra un loader mientras se verifica la sesión o se cargan los datos del personal
-  if (loading || (session && loadingPersonal)) {
+  // Muestra un loader SOLO si es la carga inicial o si hay sesión pero AÚN NO hay datos de usuario.
+  // Si ya tenemos 'appUser', no mostramos el loader aunque estemos actualizando (loadingPersonal true).
+  if (loading || (session && loadingPersonal && !appUser)) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>

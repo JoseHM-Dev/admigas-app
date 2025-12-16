@@ -17,6 +17,25 @@ export const MainCreditos = () => {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // --- FUNCIÓN PARA CORREGIR LA FECHA/HORA ---
+  const fixFechaVisual = (fechaStr) => {
+    if (!fechaStr) return "-";
+    const fecha = new Date(fechaStr);
+
+    // Obtenemos la diferencia horaria en milisegundos (ej. 6 horas = 21600000ms)
+    const userTimezoneOffset = fecha.getTimezoneOffset() * 60000;
+
+    // Sumamos esa diferencia para "cancelar" la resta automática del navegador
+    const fechaCorregida = new Date(fecha.getTime() + userTimezoneOffset);
+
+    return fechaCorregida.toLocaleString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const fetchCuentas = useCallback(async () => {
     setCargando(true);
     const { data, error } = await supabase
@@ -191,7 +210,7 @@ export const MainCreditos = () => {
         )}
       </section>
 
-      {/* --- MODAL HISTORIAL (SOLUCIÓN VISUAL) --- */}
+      {/* --- MODAL HISTORIAL --- */}
       {selectedCuenta && !isPagoModalOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
@@ -243,12 +262,8 @@ export const MainCreditos = () => {
                         className="hover:bg-blue-50 transition-colors"
                       >
                         <td className="px-6 py-3 font-mono text-gray-500 text-xs">
-                          {new Date(mov.fecha).toLocaleString("es-MX", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {/* USAMOS LA FUNCIÓN DE CORRECCIÓN AQUÍ */}
+                          {fixFechaVisual(mov.fecha)}
                         </td>
                         <td className="px-6 py-3 text-gray-700 font-medium">
                           {mov.descripcion}

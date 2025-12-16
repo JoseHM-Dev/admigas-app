@@ -149,24 +149,26 @@ export default function ModalNuevaVenta({
     }
   }, [tipoPago, montoTotal]);
 
-  // --- BUSCADOR ---
+  // --- BUSCADOR CORREGIDO (Ignora acentos) ---
   const searchClients = useCallback(async (term) => {
-    if (term.length < 3) {
+    // Permitimos buscar con 2 letras si es necesario, o mantenemos 3
+    if (term.length < 1) {
       setSearchResults([]);
       return;
     }
     setIsSearching(true);
     try {
-      const { data, error } = await supabase
-        .from("casa_habitacion")
-        .select("id_casa, nombre_cliente, calle, numero, colonia, telefono")
-        .or(
-          `nombre_cliente.ilike."%${term}%",calle.ilike."%${term}%",numero.ilike."%${term}%"`
-        )
-        .limit(10);
-      if (!error) setSearchResults(data);
+      // USAMOS LA RPC 'buscar_clientes' QUE IGNORA ACENTOS
+      const { data, error } = await supabase.rpc("buscar_clientes", {
+        term: term,
+      });
+
+      if (error) throw error;
+      
+      // Limitamos los resultados en el front o en el SQL (el SQL devuelve todo, aquí cortamos a 10)
+      setSearchResults(data ? data.slice(0, 10) : []);
     } catch (e) {
-      console.error(e);
+      console.error("Error buscando cliente:", e);
     } finally {
       setIsSearching(false);
     }
