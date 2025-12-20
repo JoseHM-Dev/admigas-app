@@ -9,6 +9,8 @@ import { useAuth } from "../../auth/useAuth";
 
 export const MainVentas = () => {
   const { user, tarifa, unidad, datosBancarios } = useAuth();
+  // Estado para ver fotos en grande (Zoom)
+  const [previewImage, setPreviewImage] = useState(null);
 
   const today = new Date();
   const offset = today.getTimezoneOffset();
@@ -453,6 +455,95 @@ export const MainVentas = () => {
                       <Icon icon="mdi:factory" className="text-orange-500" />{" "}
                       Planta
                     </h3>
+                    {/* --- SECCIÓN AUTOTANQUE CON FOTOS --- */}
+                    {plantData.autotanque.map((a, i) => (
+                      <div
+                        key={`auto-${i}`}
+                        className="flex flex-col md:flex-row justify-between items-center border-b py-4 last:border-0 border-gray-100 gap-4"
+                      >
+                        {/* 1. Título y Precio */}
+                        <div className="flex flex-col w-full md:w-1/4">
+                          <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                              <Icon icon="hugeicons:tanker-truck" width="20" />
+                            </div>
+                            Carga Autotanque
+                          </span>
+                          <span className="text-xs text-gray-400 font-medium ml-11">
+                            Precio: {formatMoney(a.precio)}
+                          </span>
+                        </div>
+
+                        {/* 2. NIVELES Y FOTOS (Centro) */}
+                        <div className="flex items-center justify-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 w-full md:w-auto">
+                          {/* INICIAL */}
+                          <div className="flex flex-col items-center gap-1 group">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">
+                              Inicial
+                            </span>
+                            <div
+                              onClick={() => setPreviewImage(a.url_inicial)}
+                              className="relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 shadow-sm w-12 h-12 hover:ring-2 hover:ring-blue-400 transition-all"
+                            >
+                              <img
+                                src={a.url_inicial}
+                                alt="Ini"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            </div>
+                            <span className="text-xs font-bold text-gray-600">
+                              {a.porcentaje_inicial}%
+                            </span>
+                          </div>
+
+                          <Icon
+                            icon="mdi:arrow-right-thin"
+                            className="text-gray-300"
+                            width="24"
+                          />
+
+                          {/* FINAL */}
+                          <div className="flex flex-col items-center gap-1 group">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">
+                              Final
+                            </span>
+                            <div
+                              onClick={() => setPreviewImage(a.url_final)}
+                              className="relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 shadow-sm w-12 h-12 hover:ring-2 hover:ring-green-400 transition-all"
+                            >
+                              <img
+                                src={a.url_final}
+                                alt="Fin"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            </div>
+                            <span className="text-xs font-bold text-blue-600">
+                              {a.porcentaje_final}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 3. Totales */}
+                        <div className="text-right w-full md:w-1/4">
+                          <div className="flex flex-col items-end">
+                            <span className="text-[10px] uppercase font-bold text-gray-400">
+                              Total Litros
+                            </span>
+                            <span className="font-black text-gray-800 text-xl">
+                              {a.litros}
+                            </span>
+                          </div>
+                          <div className="mt-1">
+                            <span className="text-xs text-green-700 font-bold bg-green-100 px-2 py-1 rounded-md border border-green-200">
+                              {formatMoney(a.monto)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {/* --------------------------------------- */}
                     {plantData.carburacion.map((c, i) => (
                       <div
                         key={i}
@@ -720,6 +811,28 @@ export const MainVentas = () => {
         datosBancarios={datosBancarios}
         idTurnoExterno={turnoData?.id}
       />
+
+      {/* --- MODAL ZOOM DE IMAGEN --- */}
+      {previewImage && (
+        <div 
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+            onClick={() => setPreviewImage(null)} // Cerrar al dar clic fuera
+        >
+            <button 
+                onClick={() => setPreviewImage(null)}
+                className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-all"
+            >
+                <Icon icon="mdi:close" width="32" />
+            </button>
+            
+            <img 
+                src={previewImage} 
+                alt="Evidencia" 
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain animate-in zoom-in-95 duration-300"
+                onClick={(e) => e.stopPropagation()} // Evitar cierre al dar clic a la imagen
+            />
+        </div>
+      )}
     </main>
   );
 };
