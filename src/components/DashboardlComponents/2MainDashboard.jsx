@@ -1,11 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import IconNuevaVenta from "../../assets/img/icono nueva venta.png";
-import IconNuevoCliente from "../../assets/img/icono nuevo cliente.png";
-import IconIrACreditos from "../../assets/img/icono ir a creditos.png";
-import IconIrAAdministracion from "../../assets/img/icono ir a administracion.png";
-
-import { BtnImgSpan } from "../ui/BtnImgSpan";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "../../supabaseClient";
 import ModalNuevaVenta from "../ui/Modales/ModalNuevaVenta";
 import ModalAgendarCliente from "../ui/Modales/ModalAgendarCliente";
@@ -37,22 +30,44 @@ export const MainDashboard = () => {
   const [isModalTarifaOpen, setIsModalTarifaOpen] = useState(false);
   const [listaDiaria, setListaDiaria] = useState([]);
   const [pagosDiarios, setPagosDiarios] = useState([]);
-  const [proximaCargaEdificios, setProximaCargaEdificios] = useState([]);
+  const [proximaCargaEdficios, setProximaCargaEdificios] = useState([]);
   const [isModalVentaOpen, setIsModalVentaOpen] = useState(false);
   const [isModalNuevoDiaOpen, setIsModalNuevoDiaOpen] = useState(false);
   const [isModalFinDiaOpen, setIsModalFinDiaOpen] = useState(false);
-  const [isModalFinDiaCompletoOpen, setIsModalFinDiaCompletoOpen] =
-    useState(false);
+  const [isModalFinDiaCompletoOpen, setIsModalFinDiaCompletoOpen] = useState(false);
 
   const [estadoDelDia, setEstadoDelDia] = useState("CERRADO"); // CERRADO | INICIADO | TERMINADO
   const [activeTurnoId, setActiveTurnoId] = useState(null);
   const [selectedVenta, setSelectedVenta] = useState(null);
-  const navigate = useNavigate();
+
+  // --- NUEVOS ESTADOS DE UI ---
+  const [viewMode, setViewMode] = useState("grid"); // "grid" o "carousel"
+  const [agendaSearch, setAgendaSearch] = useState("");
+  const [selectedDateGroup, setSelectedDateGroup] = useState(null);
 
   const [agenda, setAgenda] = useState([]);
   const [isModalAgendaOpen, setIsModalAgendaOpen] = useState(false);
   const [selectedAgendaItem, setSelectedAgendaItem] = useState(null);
   const [registrador, setRegistrador] = useState(null);
+
+  // --- INTERSECTION OBSERVER PARA BOTÓN FLOTANTE ---
+  const [isConsoleVisible, setIsConsoleVisible] = useState(true);
+  const consoleRef = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsConsoleVisible(entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: "-80px 0px 0px 0px" } // Compensa la altura del NavBar
+    );
+    if (consoleRef.current) {
+      observer.observe(consoleRef.current);
+    }
+    return () => {
+      if (consoleRef.current) observer.unobserve(consoleRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!loadingPersonal) {
@@ -112,8 +127,6 @@ export const MainDashboard = () => {
     }
 
     try {
-      // PASO 1: Traer los pagos y la info de ventas de contado (carga_casa)
-      // Traemos '*' de pagos para asegurarnos de tener el campo 'id_cuenta' disponible
       const { data: pagosData, error } = await supabase
         .from("pagos")
         .select(`
@@ -128,15 +141,11 @@ export const MainDashboard = () => {
 
       let pagosFinales = pagosData || [];
 
-      // PASO 2: Identificar abonos de crédito que necesitan nombre
-      // Buscamos pagos que NO tengan carga_casa (son créditos) y que sí tengan un id_cuenta
       const idsCuentas = pagosFinales
         .filter((p) => !p.carga_casa && p.id_cuenta) 
         .map((p) => p.id_cuenta);
 
-      // Si encontramos abonos de crédito, buscamos sus nombres en una segunda consulta
       if (idsCuentas.length > 0) {
-        // Eliminamos duplicados para optimizar
         const idsUnicos = [...new Set(idsCuentas)];
 
         const { data: cuentasData } = await supabase
@@ -147,7 +156,6 @@ export const MainDashboard = () => {
           `)
           .in("id", idsUnicos);
 
-        // Creamos un "diccionario" para búsqueda rápida: { id_cuenta: "Juan Perez" }
         const mapaNombres = {};
         if (cuentasData) {
           cuentasData.forEach((c) => {
@@ -155,11 +163,8 @@ export const MainDashboard = () => {
           });
         }
 
-        // PASO 3: Combinar todo
         pagosFinales = pagosFinales.map((p) => {
-          // Opción A: Es venta de contado
           const nombreVenta = p.carga_casa?.casa_habitacion?.nombre_cliente;
-          // Opción B: Es abono (buscamos en nuestro diccionario)
           const nombreAbono = p.id_cuenta ? mapaNombres[p.id_cuenta] : null;
 
           return {
@@ -169,7 +174,6 @@ export const MainDashboard = () => {
           };
         });
       } else {
-        // Si no hay créditos, solo formateamos los de contado
         pagosFinales = pagosFinales.map((p) => ({
           ...p,
           nombre_cliente: p.carga_casa?.casa_habitacion?.nombre_cliente || "Cliente",
@@ -188,7 +192,6 @@ export const MainDashboard = () => {
         timeZone: "America/Mexico_City",
       });
 
-      // 1. Buscamos si existe algún registro hoy
       const { data: ultimoRegistro, error: porError } = await supabase
         .from("porcentaje_diario")
         .select("*")
@@ -202,16 +205,13 @@ export const MainDashboard = () => {
         return;
       }
 
-      // CASO A: No hay registro hoy -> Día totalmente virgen/cerrado
       if (!ultimoRegistro) {
         setEstadoDelDia("CERRADO");
         setActiveTurnoId(null);
         return;
       }
 
-      // CASO B: Sí hay registro. Verificamos si ya se cerró administrativamente (Reporte Diario)
       if (ultimoRegistro.porcentaje_final !== null) {
-        // Ya tiene porcentaje final, checamos si ya se hizo el "Fin de Día Completo"
         const { data: ultimoReporte, error: repError } = await supabase
           .from("reporte_diario")
           .select("finalizado")
@@ -223,20 +223,17 @@ export const MainDashboard = () => {
         if (repError) console.error(repError);
 
         if (ultimoReporte && ultimoReporte.finalizado === true) {
-          // --- ESTADO: CERRADO ---
           setEstadoDelDia("CERRADO");
-          setActiveTurnoId(null); // Al estar cerrado, limpiamos el ID para que no salgan ventas
+          setActiveTurnoId(null);
         } else {
-          // --- ESTADO: TERMINADO (Llegada registrada, falta reporte) ---
           setEstadoDelDia("TERMINADO");
           setRegistrador({ id: ultimoRegistro.registrador_id });
-          setActiveTurnoId(ultimoRegistro.id); // Aquí SÍ necesitamos el ID para ver datos
+          setActiveTurnoId(ultimoRegistro.id);
         }
       } else {
-        // --- ESTADO: INICIADO (Turno abierto normal) ---
         setEstadoDelDia("INICIADO");
         setRegistrador({ id: ultimoRegistro.registrador_id });
-        setActiveTurnoId(ultimoRegistro.id); // Aquí SÍ necesitamos el ID
+        setActiveTurnoId(ultimoRegistro.id);
       }
     } catch (error) {
       console.error("Error validando estado:", error);
@@ -260,7 +257,53 @@ export const MainDashboard = () => {
     else setAgenda(data);
   }, []);
 
-  // Función para eliminar pago desde el Dashboard
+  const fixFecha = (fechaString) => {
+    if (!fechaString) return new Date();
+    const fecha = new Date(fechaString);
+    const userTimezoneOffset = fecha.getTimezoneOffset() * 60000;
+    return new Date(fecha.getTime() + userTimezoneOffset);
+  };
+
+  const getStatusFecha = (fechaString) => {
+    const fechaAgenda = fixFecha(fechaString);
+    const hoy = new Date();
+    const fechaAgendaDate = new Date(
+      fechaAgenda.getFullYear(),
+      fechaAgenda.getMonth(),
+      fechaAgenda.getDate()
+    );
+    const hoyDate = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    if (fechaAgendaDate < hoyDate) return "atrasado";
+    return "hoy";
+  };
+
+  // --- AGRUPACIÓN Y BÚSQUEDA EN AGENDA ---
+  const agendaGroups = useMemo(() => {
+    const groups = {};
+    agenda.forEach((item) => {
+      const nombre = item.casa_habitacion?.nombre_cliente?.toLowerCase() || "";
+      if (agendaSearch && !nombre.includes(agendaSearch.toLowerCase())) return;
+  
+      const d = fixFecha(item.fecha_proxima_carga);
+      const dateKey = d.toLocaleDateString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit" });
+      const dateLabel = d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" });
+  
+      if (!groups[dateKey]) groups[dateKey] = { label: dateLabel, items: [], dateObj: d };
+      groups[dateKey].items.push(item);
+    });
+    return Object.entries(groups)
+      .sort((a, b) => a[1].dateObj - b[1].dateObj)
+      .map(([key, val]) => ({ id: key, label: val.label, items: val.items }));
+  }, [agenda, agendaSearch]);
+
+  useEffect(() => {
+    if (agendaGroups.length > 0 && !agendaGroups.find(g => g.id === selectedDateGroup)) {
+      setSelectedDateGroup(agendaGroups[0].id);
+    } else if (agendaGroups.length === 0) {
+      setSelectedDateGroup(null);
+    }
+  }, [agendaGroups, selectedDateGroup]);
+
   const handleDeletePago = async (id_pago) => {
     if (!confirm("⚠️ ¿Estás seguro de eliminar este abono?\n\nAl eliminarlo:\n1. Se borrará del corte del día.\n2. Se le regresará la deuda al cliente (si aplica).")) {
       return;
@@ -271,7 +314,7 @@ export const MainDashboard = () => {
       if (error) throw error;
       
       alert("Abono eliminado correctamente.");
-      fetchPagosDiarios(); // Refrescamos la lista
+      fetchPagosDiarios();
     } catch (error) {
       console.error(error);
       alert("Error eliminando: " + error.message);
@@ -296,16 +339,8 @@ export const MainDashboard = () => {
   };
 
   const handleDeleteAgenda = async (id_agenda) => {
-    if (
-      !confirm(
-        "¿Estás seguro de que quieres eliminar esta entrada de la agenda?"
-      )
-    )
-      return;
-    const { error } = await supabase
-      .from("agenda")
-      .delete()
-      .eq("id", id_agenda);
+    if (!confirm("¿Estás seguro de que quieres eliminar esta entrada de la agenda?")) return;
+    const { error } = await supabase.from("agenda").delete().eq("id", id_agenda);
     if (error) console.error("Error deleting agenda item:", error);
     else fetchAgenda();
   };
@@ -345,51 +380,25 @@ export const MainDashboard = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar este registro?"))
-      return;
-    const { error } = await supabase
-      .from("carga_casa")
-      .delete()
-      .eq("id_carga", id);
+    if (!confirm("¿Estás seguro de que quieres eliminar este registro?")) return;
+    const { error } = await supabase.from("carga_casa").delete().eq("id_carga", id);
     if (error) console.log("Hubo un error al eliminar el registro.");
     else fetchListaDiaria();
   };
 
-  // --- LÓGICA DE TRANSICIÓN DE ESTADOS ---
   const handleDiaGuardado = (abrirSiguientePaso = false) => {
-    refreshData(); // Esto actualizará el estado a TERMINADO si se guardó la llegada
+    refreshData();
     if (abrirSiguientePaso) {
-      setIsModalFinDiaOpen(false); // Cierra modal 1
-      // Pequeño delay para asegurar que el estado se refresque y la UX sea suave
+      setIsModalFinDiaOpen(false);
       setTimeout(() => {
-        setIsModalFinDiaCompletoOpen(true); // Abre modal 2
+        setIsModalFinDiaCompletoOpen(true);
       }, 300);
     }
   };
 
   const handleFinDiaCompletoGuardado = () => {
     setIsModalFinDiaCompletoOpen(false);
-    refreshData(); // Esto actualizará el estado a CERRADO
-  };
-
-  const fixFecha = (fechaString) => {
-    if (!fechaString) return new Date();
-    const fecha = new Date(fechaString);
-    const userTimezoneOffset = fecha.getTimezoneOffset() * 60000;
-    return new Date(fecha.getTime() + userTimezoneOffset);
-  };
-
-  const getStatusFecha = (fechaString) => {
-    const fechaAgenda = fixFecha(fechaString);
-    const hoy = new Date();
-    const fechaAgendaDate = new Date(
-      fechaAgenda.getFullYear(),
-      fechaAgenda.getMonth(),
-      fechaAgenda.getDate()
-    );
-    const hoyDate = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-    if (fechaAgendaDate < hoyDate) return "atrasado";
-    return "hoy";
+    refreshData();
   };
 
   const formatMoney = (amount) =>
@@ -397,52 +406,126 @@ export const MainDashboard = () => {
       style: "currency",
       currency: "MXN",
     });
+
   const getPaymentBadgeStyle = (tipo) => {
     switch (tipo.toLowerCase()) {
       case "efectivo":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-emerald-100 text-emerald-700 border-emerald-200";
       case "transferencia":
-        return "bg-purple-100 text-purple-700 border-purple-200";
+        return "bg-sky-100 text-sky-700 border-sky-200";
       case "tarjeta":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "bg-indigo-100 text-indigo-700 border-indigo-200";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
+  // Renderizador de las tarjetas de ventas para reutilizarlo en grid o carrusel
+  const renderCardsVentas = () => {
+    return listaDiaria.map((item, index) => (
+      <div
+        key={item.id_carga || index}
+        className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-slate-200 transition-all duration-300 overflow-hidden group flex flex-col justify-between shrink-0 snap-center min-w-[85vw] sm:min-w-[320px] w-full"
+      >
+        <div className="bg-slate-50/50 p-4 border-b border-slate-100 flex items-start gap-3">
+          <div className="mt-1 bg-white p-2 rounded-full shadow-sm border border-slate-100 text-sky-500">
+            <Icon icon="mdi:map-marker-radius" width="20" />
+          </div>
+          <div>
+            <p className="font-extrabold text-slate-700 text-[15px] leading-tight mb-0.5">
+              {item.calle} #{item.numero}
+            </p>
+            <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
+              {item.colonia}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-5 flex-1">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest mb-1">
+                Consumo
+              </p>
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-lg">
+                <Icon icon="mdi:gas-station" className="text-sky-500" width="20" />
+                <span>{item.consumo_litros} L</span>
+              </div>
+              {Number(item.ret) > 0 && (
+                <div className="flex items-center gap-1 text-rose-500 text-xs font-bold mt-1.5 bg-rose-50 px-2 py-0.5 rounded-md inline-flex">
+                  <Icon icon="mdi:gas-burner" width="14" />
+                  <span>Ret: {item.ret} L</span>
+                </div>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest mb-1">
+                Total
+              </p>
+              <p className="text-3xl font-black text-slate-800 tracking-tight">
+                {formatMoney(item.monto_total)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-start mt-2">
+            <span
+              className={`px-3 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-wider border ${getPaymentBadgeStyle(
+                item.tipo_pago
+              )}`}
+            >
+              {item.tipo_pago}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 bg-white">
+          <button
+            onClick={() => handleModify(item.id_carga)}
+            className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+          >
+            <Icon icon="mdi:pencil-outline" width="18" /> Editar
+          </button>
+          <button
+            onClick={() => handleDelete(item.id_carga)}
+            className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+          >
+            <Icon icon="mdi:trash-can-outline" width="18" /> Eliminar
+          </button>
+        </div>
+      </div>
+    ));
+  };
+
   return (
-    <main>
-      <section className="hidden  justify-between m-auto p-8 hover:cursor-pointer max-w-[800px] sm:flex md:items-center ">
-        <div onClick={() => navigate("/ventas")}>
-          <BtnImgSpan text={"Ventas"} imagen={IconNuevaVenta} />
-        </div>
-        <div onClick={() => navigate("/clientes")}>
-          <BtnImgSpan text={"Nuevo Cliente"} imagen={IconNuevoCliente} />
-        </div>
-        <div onClick={() => navigate("/creditos")}>
-          <BtnImgSpan text={"Creditos"} imagen={IconIrACreditos} />
-        </div>
-        <div onClick={() => navigate("/administracion")}>
-          <BtnImgSpan text={"Administracion"} imagen={IconIrAAdministracion} />
-        </div>
-      </section>
+    <main className="bg-slate-50 min-h-screen pb-10 font-sans">
+      {/* Botón Flotante Nueva Venta (Móvil siempre, Escritorio/Tablet al hacer scroll) */}
+      {estadoDelDia === "INICIADO" && (
+        <button
+          onClick={handleOpenVentaModal}
+          className={`fixed bottom-6 right-6 z-40 bg-sky-500 text-white p-4 rounded-full shadow-lg shadow-sky-500/40 transition-all duration-300 hover:scale-105 ${
+            isConsoleVisible ? "md:opacity-0 md:invisible md:translate-y-5" : "opacity-100 visible translate-y-0"
+          }`}
+        >
+          <Icon icon="mdi:plus-thick" width="28" />
+        </button>
+      )}
 
       {/* --- SECCIÓN LISTA DIARIA --- */}
-      <section className="m-auto max-w-5xl p-4">
-        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-3 transition-all duration-200 animate-pulse">
+      <section className="m-auto max-w-6xl px-4 py-8">
+        <h2 className="font-extrabold text-center text-3xl text-blue-900 mb-8 tracking-tight">
           Lista Diaria de Ventas
         </h2>
 
         {/* BOTONERA DE ACCIONES DEL DÍA */}
-        <div className="flex flex-row items-center justify-center gap-3 mb-8 flex-wrap">
+        <div ref={consoleRef} className="flex flex-row items-center justify-center gap-4 mb-10 flex-wrap">
           <button
             onClick={handleOpenNuevoDiaModal}
-            // Solo activo si ESTÁ TOTALMENTE CERRADO
             disabled={estadoDelDia !== "CERRADO"}
-            className={`flex items-center gap-2 py-2 px-4 rounded-full font-bold shadow-md transition-all ${
+            className={`flex items-center gap-2 py-2.5 px-6 rounded-xl font-bold shadow-sm transition-all ${
               estadoDelDia === "CERRADO"
-                ? "bg-green-600 text-white hover:bg-green-700 hover:-translate-y-1"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                ? "bg-sky-500 text-white hover:bg-sky-600 hover:shadow-md hover:-translate-y-0.5"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
             }`}
           >
             <Icon icon="mdi:weather-sunny" width="20" /> Nuevo Día
@@ -450,12 +533,11 @@ export const MainDashboard = () => {
 
           <button
             onClick={handleOpenFinDiaModal}
-            // Solo activo si está INICIADO (turno abierto)
             disabled={estadoDelDia !== "INICIADO"}
-            className={`flex items-center gap-2 py-2 px-4 rounded-full font-bold shadow-md transition-all ${
+            className={`flex items-center gap-2 py-2.5 px-6 rounded-xl font-bold shadow-sm transition-all ${
               estadoDelDia === "INICIADO"
-                ? "bg-slate-800 text-white hover:bg-slate-700 hover:-translate-y-1"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                ? "bg-slate-800 text-white hover:bg-slate-700 hover:shadow-md hover:-translate-y-0.5"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
             }`}
           >
             <Icon icon="mdi:weather-night" width="20" /> Fin de Día
@@ -463,13 +545,11 @@ export const MainDashboard = () => {
 
           <button
             onClick={handleOpenActividadesModal}
-            // Activo si está TERMINADO (llegada registrada, pero no reporte)
-            // Opcional: También podrías permitirlo en INICIADO si quisieras registrar actividades antes de cerrar, pero tu flujo parece secuencial.
             disabled={estadoDelDia !== "TERMINADO"}
-            className={`flex items-center gap-2 py-2 px-4 rounded-full font-bold shadow-md transition-all ${
+            className={`flex items-center gap-2 py-2.5 px-6 rounded-xl font-bold shadow-sm transition-all ${
               estadoDelDia === "TERMINADO"
-                ? "bg-orange-600 text-white hover:bg-orange-700 hover:-translate-y-1 animate-pulse"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                ? "bg-amber-500 text-white hover:bg-amber-600 hover:shadow-md hover:-translate-y-0.5 animate-pulse"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
             }`}
           >
             <Icon icon="mdi:factory" width="20" /> Planta
@@ -478,129 +558,65 @@ export const MainDashboard = () => {
           <button
             onClick={handleOpenVentaModal}
             disabled={estadoDelDia !== "INICIADO"}
-            className={`flex items-center gap-2 py-2 px-4 rounded-full font-bold shadow-md transition-all ${
+            className={`hidden md:flex items-center gap-2 py-2.5 px-6 rounded-xl font-bold shadow-sm transition-all ${
               estadoDelDia === "INICIADO"
-                ? "bg-[#6432e4] text-white hover:bg-indigo-600 hover:-translate-y-1"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                ? "bg-blue-900 text-white hover:bg-blue-800 hover:shadow-md hover:-translate-y-0.5"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
             }`}
           >
             <Icon icon="mdi:plus-circle-outline" width="20" /> Nueva Venta
           </button>
         </div>
 
-        {/* --- GRID DE TARJETAS DE VENTA --- */}
+        {/* --- TARJETAS DE VENTA --- */}
         {listaDiaria.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {listaDiaria.map((item, index) => (
-              <div
-                key={item.id_carga || index}
-                className="bg-white rounded-xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-200 overflow-hidden group"
-              >
-                {/* Encabezado: Dirección */}
-                <div className="bg-slate-50 p-3 border-b border-gray-100 flex items-start gap-2">
-                  <div className="mt-1 text-slate-400">
-                    <Icon icon="mdi:map-marker" width="18" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-gray-800 text-sm leading-tight">
-                      {item.calle} #{item.numero}
-                    </p>
-                    <p className="text-xs text-gray-500 uppercase font-medium">
-                      {item.colonia}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Cuerpo: Detalles Financieros */}
-                <div className="p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">
-                        Consumo
-                      </p>
-                      <div className="flex items-center gap-1 text-gray-700 font-semibold">
-                        <Icon
-                          icon="mdi:gas-station"
-                          className="text-blue-500"
-                        />
-                        <span>{item.consumo_litros} Lts</span>
-                      </div>
-                      {Number(item.ret) > 0 && (
-                        <div className="flex items-center gap-1 text-red-500 text-xs font-medium mt-1">
-                          <Icon icon="mdi:gas-burner" />
-                          <span>Ret: {item.ret} Lts</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400 uppercase font-bold tracking-wider">
-                        Total
-                      </p>
-                      <p className="text-2xl font-black text-gray-800">
-                        {formatMoney(item.monto_total)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2">
-                    <span
-                      className={`px-2 py-1 rounded-md text-[10px] uppercase font-bold border ${getPaymentBadgeStyle(
-                        item.tipo_pago
-                      )}`}
-                    >
-                      {item.tipo_pago}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Pie: Acciones */}
-                <div className="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100 bg-gray-50/50">
-                  <button
-                    onClick={() => handleModify(item.id_carga)}
-                    className="py-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                  >
-                    <Icon icon="mdi:pencil-outline" width="18" /> Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id_carga)}
-                    className="py-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <Icon icon="mdi:trash-can-outline" width="18" /> Eliminar
-                  </button>
-                </div>
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-slate-500 font-bold text-sm">Ventas hoy: <span className="text-blue-900 bg-blue-100 px-2 py-0.5 rounded-full">{listaDiaria.length}</span></p>
+              <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                <button onClick={() => setViewMode("grid")} className={`px-4 py-2 transition-colors ${viewMode === "grid" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+                  <Icon icon="mdi:view-grid" width="20" />
+                </button>
+                <button onClick={() => setViewMode("carousel")} className={`px-4 py-2 transition-colors ${viewMode === "carousel" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+                  <Icon icon="mdi:view-carousel" width="20" />
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {renderCardsVentas()}
+              </div>
+            ) : (
+              <div className="flex overflow-x-auto gap-5 pb-6 pt-2 snap-x snap-mandatory scroll-smooth hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-1">
+                {renderCardsVentas()}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 px-4 bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl">
+          <div className="flex flex-col items-center justify-center py-16 px-4 bg-white border border-dashed border-slate-300 rounded-2xl shadow-sm">
             {estadoDelDia === "CERRADO" ? (
               <>
-                <Icon
-                  icon="mdi:store-clock-outline"
-                  className="text-gray-300 w-16 h-16 mb-2"
-                />
-                <p className="text-gray-500 font-medium">
+                <Icon icon="mdi:store-clock-outline" className="text-slate-200 w-20 h-20 mb-4" />
+                <p className="text-slate-500 font-medium text-lg text-center">
                   El turno está cerrado.
                 </p>
                 <button
                   onClick={handleOpenNuevoDiaModal}
-                  className="mt-4 text-sm text-green-600 font-bold hover:underline"
+                  className="mt-4 bg-sky-500 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-sky-600 shadow-md transition-all hover:-translate-y-0.5"
                 >
                   Iniciar Nuevo Día
                 </button>
               </>
             ) : (
               <>
-                <Icon
-                  icon="mdi:clipboard-text-off-outline"
-                  className="text-gray-300 w-16 h-16 mb-2"
-                />
-                <p className="text-gray-500 font-medium">
+                <Icon icon="mdi:clipboard-text-off-outline" className="text-slate-200 w-20 h-20 mb-4" />
+                <p className="text-slate-500 font-medium text-lg text-center">
                   No hay ventas registradas en este turno aún.
                 </p>
                 <button
                   onClick={handleOpenVentaModal}
-                  className="mt-4 text-sm text-indigo-600 font-bold hover:underline"
+                  className="mt-4 bg-blue-900 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-800 shadow-md transition-all hover:-translate-y-0.5"
                 >
                   ¡Registra la primera venta!
                 </button>
@@ -612,46 +628,79 @@ export const MainDashboard = () => {
 
       <DailySummary listaDiaria={listaDiaria} pagosDiarios={pagosDiarios} onDeletePago={handleDeletePago} />
 
-      {/* ... SECCIÓN AGENDA (Sin cambios significativos, se mantiene igual) ... */}
-      <section className="m-auto max-w-5xl p-4 mb-10">
-        <h2 className="font-extrabold flex justify-center text-3xl text-transparent bg-clip-text bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] my-3 transition-all duration-200 animate-pulse">
-          Agenda de Cargas
-        </h2>
-        {/* ... Resto del código de agenda ... */}
-        <div className="flex justify-center mb-8 gap-4">
-          <button
-            onClick={() => {
-              setSelectedAgendaItem(null);
-              setIsModalAgendaOpen(true);
-            }}
-            className="flex items-center gap-2 py-3 px-6 bg-[#6432e4] text-white rounded-full shadow-lg hover:shadow-xl hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:-translate-y-1 transition-all duration-200 cursor-pointer font-bold"
-          >
-            <Icon icon="mdi:calendar-plus" width="24" /> Agendar Nuevo Cliente
-          </button>
+      {/* --- SECCIÓN AGENDA --- */}
+      <section className="m-auto max-w-6xl px-4 mb-16 mt-8">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 border-b border-slate-200 pb-4">
+          <h2 className="text-3xl font-extrabold text-blue-900 tracking-tight">
+            Agenda de Cargas
+          </h2>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Icon icon="mdi:magnify" className="text-slate-400" width="20" />
+              </div>
+              <input 
+                type="text" 
+                placeholder="Buscar cliente..." 
+                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-all text-slate-700 shadow-sm"
+                value={agendaSearch}
+                onChange={(e) => setAgendaSearch(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={() => {
+                setSelectedAgendaItem(null);
+                setIsModalAgendaOpen(true);
+              }}
+              className="flex shrink-0 items-center justify-center p-2.5 bg-blue-900 text-white rounded-xl shadow-md hover:bg-blue-800 transition-all hover:-translate-y-0.5"
+              title="Agendar Nuevo Cliente"
+            >
+              <Icon icon="mdi:calendar-plus" width="24" />
+            </button>
+          </div>
         </div>
 
-        {agenda.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {agenda.map((item) => {
+        {agendaGroups.length > 0 ? (
+          <>
+            {/* CARRUSEL DE FECHAS (TABS) */}
+            <div className="flex overflow-x-auto gap-3 mb-8 pb-2 hide-scrollbar">
+              {agendaGroups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => setSelectedDateGroup(group.id)}
+                  className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold text-sm transition-all border ${
+                    selectedDateGroup === group.id 
+                    ? 'bg-blue-900 text-white border-blue-900 shadow-md' 
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-sky-400 hover:text-sky-600 hover:bg-sky-50'
+                  }`}
+                >
+                  {group.label} <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] ${selectedDateGroup === group.id ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{group.items.length}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* GRID DE CLIENTES PARA LA FECHA SELECCIONADA */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {agendaGroups.find(g => g.id === selectedDateGroup)?.items.map((item) => {
               const status = getStatusFecha(item.fecha_proxima_carga);
               const fechaVisual = fixFecha(item.fecha_proxima_carga);
               return (
                 <div
                   key={item.id}
-                  className={`bg-white rounded-2xl p-5 shadow-md border hover:shadow-xl transition-all duration-300 relative overflow-hidden group
+                  className={`bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-lg transition-all duration-300 relative overflow-hidden group
                     ${
                       status === "atrasado"
-                        ? "border-l-4 border-l-red-500"
-                        : "border-l-4 border-l-green-500"
+                        ? "border-l-4 border-l-rose-500"
+                        : "border-l-4 border-l-emerald-500"
                     }
                   `}
                 >
                   <div
-                    className={`absolute top-4 right-4 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider
+                    className={`absolute top-4 right-4 text-[10px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider
                       ${
                         status === "atrasado"
-                          ? "bg-red-100 text-red-600"
-                          : "bg-green-100 text-green-600"
+                          ? "bg-rose-50 text-rose-600"
+                          : "bg-emerald-50 text-emerald-600"
                       }
                   `}
                   >
@@ -659,25 +708,25 @@ export const MainDashboard = () => {
                   </div>
 
                   <div className="flex items-start gap-4 mb-3">
-                    <div className="bg-blue-50 p-3 rounded-full text-blue-600">
-                      <Icon icon="mdi:user" width="24" />
+                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-full text-sky-500">
+                      <Icon icon="mdi:account-circle-outline" width="28" />
                     </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800 text-lg leading-tight">
+                    <div className="pr-16">
+                      <h3 className="font-black text-slate-800 text-lg leading-tight">
                         {item.casa_habitacion.nombre_cliente}
                       </h3>
-                      <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-bold">
                         <Icon icon="mdi:map-marker" width="12" />
                         {item.casa_habitacion.colonia}
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-2 mb-4">
-                    <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded-md flex items-start gap-2">
+                  <div className="space-y-2 mb-5">
+                    <p className="text-[13px] text-slate-600 bg-slate-50 border border-slate-100 p-2.5 rounded-lg flex items-start gap-2 font-medium">
                       <Icon
                         icon="mdi:home-map-marker"
-                        className="mt-0.5 text-gray-400 min-w-4"
+                        className="mt-0.5 text-sky-500 min-w-4"
                       />
                       <span>
                         {item.casa_habitacion.calle} #
@@ -685,18 +734,19 @@ export const MainDashboard = () => {
                       </span>
                     </p>
                     {item.comentario && (
-                      <p className="text-sm text-orange-600 bg-orange-50 p-2 rounded-md flex items-start gap-2 italic border border-orange-100">
+                      <p className="text-[13px] text-amber-700 bg-amber-50 p-2.5 rounded-lg flex items-start gap-2 border border-amber-100 font-medium">
                         <Icon
                           icon="mdi:comment-text-outline"
-                          className="mt-0.5 min-w-4"
+                          className="mt-0.5 text-amber-500 min-w-4"
                         />
                         <span>"{item.comentario}"</span>
                       </p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                    <span className="text-xs font-semibold text-gray-500">
+                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                      <Icon icon="mdi:clock-outline" width="16" />
                       {fechaVisual.toLocaleDateString("es-MX", {
                         weekday: "short",
                         day: "numeric",
@@ -706,39 +756,35 @@ export const MainDashboard = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleReagendar(item)}
-                        className="p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
                       >
-                        <Icon icon="mdi:calendar-edit" width="20" />
+                        <Icon icon="mdi:calendar-edit" width="22" />
                       </button>
                       <button
                         onClick={() => handleDeleteAgenda(item.id)}
-                        className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                       >
-                        <Icon icon="mdi:trash-can-outline" width="20" />
+                        <Icon icon="mdi:trash-can-outline" width="22" />
                       </button>
                     </div>
                   </div>
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         ) : (
-          <div className="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+          <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 shadow-sm">
             <Icon
               icon="mdi:calendar-blank-outline"
               width="64"
-              className="text-gray-300 mb-4"
+              className="text-slate-200 mb-4"
             />
-            <p className="text-gray-500 font-medium text-center">
+            <p className="text-slate-500 font-medium text-center text-lg">
               No hay clientes pendientes.
             </p>
           </div>
         )}
-      </section>
-
-      {/* SECCION EDIFICIOS (Sin cambios) */}
-      <section className="m-auto max-w-4xl p-4">
-        {/* ... tabla edificios ... */}
       </section>
 
       {/* MODALES */}
@@ -747,19 +793,17 @@ export const MainDashboard = () => {
         onClose={() => setIsModalVentaOpen(false)}
         venta={selectedVenta}
         onVentaGuardada={refreshData}
-        tarifa={tarifa} // <--- Esto arreglará el precio en 0
-        unidad={unidad} // Necesario para el Ticket
-        datosBancarios={datosBancarios} // Necesario para el Ticket
-        user={appUser} // Necesario si usas datos del usuario
+        tarifa={tarifa} 
+        unidad={unidad} 
+        datosBancarios={datosBancarios} 
+        user={appUser} 
         idTurnoExterno={activeTurnoId}
       />
       <ModalNuevoDia
         isOpen={isModalNuevoDiaOpen}
         onClose={() => setIsModalNuevoDiaOpen(false)}
-        onDiaGuardado={() => handleDiaGuardado(false)} // Nuevo día solo refresca
+        onDiaGuardado={() => handleDiaGuardado(false)} 
       />
-
-      {/* AQUÍ EL CAMBIO IMPORTANTE: FinDia controla su cierre y la apertura del siguiente */}
       <ModalFinDia
         isOpen={isModalFinDiaOpen}
         onClose={() => setIsModalFinDiaOpen(false)}
@@ -769,10 +813,8 @@ export const MainDashboard = () => {
         listaDiaria={listaDiaria}
         pagosDiarios={pagosDiarios}
         unidad={unidad}
-        idTurno={activeTurnoId} // <--- AGREGADO: Pasamos el ID exacto
+        idTurno={activeTurnoId} 
       />
-
-      {/* FinDiaCompleto es independiente ahora */}
       <ModalFinDiaCompleto
         isOpen={isModalFinDiaCompletoOpen}
         onClose={() => setIsModalFinDiaCompletoOpen(false)}
@@ -781,9 +823,8 @@ export const MainDashboard = () => {
         listaDiaria={listaDiaria}
         pagosDiarios={pagosDiarios}
         unidad={unidad}
-        idTurno={activeTurnoId} // <--- AGREGADO: Pasamos el ID exacto
+        idTurno={activeTurnoId} 
       />
-
       <ModalAgendarCliente
         isOpen={isModalAgendaOpen}
         onClose={() => setIsModalAgendaOpen(false)}
@@ -793,8 +834,6 @@ export const MainDashboard = () => {
           setSelectedAgendaItem(null);
         }}
       />
-
-      {/* Otros modales de configuración */}
       <ModalPersonal
         isOpen={isModalPersonalOpen}
         onClose={() => setIsModalPersonalOpen(false)}

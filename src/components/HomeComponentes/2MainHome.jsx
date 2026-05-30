@@ -1,184 +1,176 @@
 import LogoTransparente from "../../assets/img/logo-transparente.png";
-import imgCRM from "../../assets/img/icono CRM.png";
-import imgCredito from "../../assets/img/icono credito.png";
-import imgRecibo from "../../assets/img/icono recibo.png";
-import imgSeguridad from "../../assets/img/icono seguridad y confianza.png";
-import imgOperativa from "../../assets/img/icono eficiencia operativa.png";
-import imgServicio from "../../assets/img/icono servicio personalisado.png";
-import { BtnIniciarSesion } from "../ui/BotonIniciarSesion";
-import { BotonContactanos } from "../ui/BotonContactanos";
-import { Link } from "react-router-dom"; // Importamos Link
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { Icon } from "@iconify/react";
 
 export const MainHome = () => {
-  const navigate = useNavigate();
   return (
-    <main className="flex flex-col   items-center">
-      <section className="flex flex-col items-center  bg-black/15 mx-15 mt-5 rounded-xl">
-        <img
-          className="flex h-[250px] w-[250px] animate-[float_3s_ease-in-out_infinite] "
-          src={LogoTransparente}
-          alt="Logo de la empresa"
-        />
+    <main className="flex flex-col items-center bg-slate-50 min-h-screen font-sans w-full">
+      
+      {/* --- HERO SECTION --- */}
+      <section className="flex flex-col items-center w-full max-w-6xl px-6 py-16 md:py-24">
+        <div className="relative mb-10">
+          <img
+            className="h-[180px] w-[180px] sm:h-[220px] sm:w-[220px] object-contain drop-shadow-2xl animate-[float_3s_ease-in-out_infinite]"
+            src={LogoTransparente}
+            alt="Logo AdmiGas"
+          />
+        </div>
 
-        <h1 className="font-poppins text-4xl font-bold text-center">
-          ¿Quienes somos..
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-center text-blue-900 leading-tight max-w-4xl tracking-tight">
+          Tu socio confiable en la <span className="text-sky-500">administración</span> de Gas LP
         </h1>
 
-        <p className="font-poppins text-2xl font-normal text-center p-2 m-2 text-black/65">
-          Admi Gas LP somos su socio confiable en la administración eficiente de
-          Gas LP.
+        <p className="mt-6 text-lg md:text-xl text-slate-500 text-center max-w-2xl font-medium">
+          Herramientas digitales diseñadas para optimizar el control, distribución y cobranza de tu empresa gasera.
         </p>
 
-        <div className="flex gap-8 m-4">
-          <BtnIniciarSesion text="Contactar" />
+        <div className="flex flex-col sm:flex-row gap-5 mt-10 w-full sm:w-auto">
+          <a
+            href="https://wa.me/5215521758607"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg py-3.5 px-8 rounded-xl shadow-lg shadow-sky-500/30 transition-all duration-300 transform hover:-translate-y-1 w-full sm:w-auto"
+          >
+            <Icon icon="mdi:whatsapp" width="24" /> Contactar
+          </a>
+          <Link to="/Login" className="w-full sm:w-auto">
+            <button className="flex items-center justify-center gap-2 bg-white border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-bold text-lg py-3 px-8 rounded-xl shadow-sm transition-all duration-300 transform hover:-translate-y-1 w-full">
+              <Icon icon="mdi:login-variant" width="24" /> Ya soy parte
+            </button>
+          </Link>
+        </div>
+      </section>
 
-          <div className="flex items-center justify-center  border-2 border-black/50 rounded-lg p-1 hover:cursor-pointer hover:scale-105 transition-all duration-300">
-            <Link to="/Login">
-              <BotonContactanos text="Ya soy parte" />
-            </Link>
+      {/* --- SECCIÓN SERVICIOS --- */}
+      <section className="w-full max-w-7xl px-6 py-16">
+        <div className="text-center mb-14">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900">
+            Nuestros Servicios
+          </h2>
+          <p className="text-slate-500 mt-3 text-lg font-medium">Soluciones integrales para digitalizar tu negocio</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Tarjeta 1 */}
+          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-sky-50 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Icon icon="mdi:account-group-outline" className="text-sky-500 w-12 h-12" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-700 mb-3">Módulo de Gestión de Clientes (CRM)</h3>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Crear un expediente digital completo para cada usuario y administrar sus necesidades ágilmente.
+            </p>
+          </div>
+
+          {/* Tarjeta 2 */}
+          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-sky-50 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Icon icon="mdi:credit-card-outline" className="text-sky-500 w-12 h-12" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-700 mb-3">Administración de Crédito y Cobranza</h3>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Control financiero y análisis de riesgo de crédito detallado para optimizar el flujo de tu empresa.
+            </p>
+          </div>
+
+          {/* Tarjeta 3 */}
+          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-sky-50 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Icon icon="mdi:receipt-text-outline" className="text-sky-500 w-12 h-12" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-700 mb-3">Generador de Recibos y Facturas</h3>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Creación de tickets detallados y facturación con base en el consumo o servicio prestado.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="m-5 mx-7">
-        <section className="flex items-center justify-center m-3 ">
-          <h2 className="text-2xl bg-linear-to-r from-pink-600 to-purple-600 text-transparent bg-clip-text">
-            Nuestros servicios
-          </h2>
-        </section>
+      {/* --- SECCIÓN COMPROMISO --- */}
+      <section className="w-full bg-white border-t border-slate-200 mt-8 py-16">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900">
+              Nuestro Compromiso
+            </h2>
+          </div>
 
-        <section className="flex flex-col gap-6 sm:flex-row sm:py-9 transition-all duration-300 sm:min-w-0 ">
-          <section className="flex flex-col bg-black/15 items-center p-3 rounded-lg gap-2  lg:flex-col lg:min-w-0 ">
-            <section className=" h-[200px] w-[200px] sm:h-[170px] sm:w-[170px]">
-              <img
-                className="h-full w-full flex items-center justify-center animate-[float_3s_ease-in-out_infinite]"
-                src={imgCRM}
-                alt="Icono de CRM"
-              />
-            </section>
-
-            <section className="flex flex-col justify-center gap-6  max-w-[350px]">
-              <h3 className="text-[17px] font-bold ">
-                Módulo de Gestión de Clientes (CRM)
-              </h3>
-              <p className=" font-medium text-black/70">
-                {" "}
-                Crear un expediente digital completo para cada usuario.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-blue-50 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100">
+                <Icon icon="mdi:shield-check-outline" className="text-blue-900 w-12 h-12" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-700 mb-3">Seguridad y Confianza</h3>
+              <p className="text-slate-500 font-medium">
+                Implementamos altos estándares de seguridad con la finalidad de que tus datos se encuentren en resguardo seguro.
               </p>
-            </section>
-          </section>
+            </div>
 
-          <section className="flex flex-col-reverse bg-black/15 items-center p-3 rounded-lg gap-2 sm:justify-end  lg:flex-col lg:min-w-0 lg:justify-between">
-            <section className="flex flex-col justify-center gap-6  max-w-[350px]">
-              <h3 className="text-[17px] font-bold ">
-                Sistema de Administración de Crédito y Cobranza
-              </h3>
-              <p className=" font-medium text-black/70">
-                {" "}
-                Control Financiero y Riesgo de Crédito
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-blue-50 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100">
+                <Icon icon="mdi:chart-timeline-variant-shimmer" className="text-blue-900 w-12 h-12" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-700 mb-3">Eficiencia Operativa</h3>
+              <p className="text-slate-500 font-medium">
+                Garantizamos una eficiencia con los más altos estándares operativos y automatización de procesos.
               </p>
-            </section>
+            </div>
 
-            <section className=" h-[200px] w-[200px] sm:h-[170px] sm:w-[170px]">
-              <img
-                className="h-full w-full flex items-center justify-center animate-[float_3s_ease-in-out_infinite]"
-                src={imgCredito}
-                alt="Icono de crédito"
-              />
-            </section>
-          </section>
-
-          <section className="flex flex-col bg-black/15 items-center p-3 rounded-lg gap-2  lg:flex-col lg:min-w-0">
-            <section className=" h-[200px] w-[200px] sm:h-[170px] sm:w-[170px]">
-              <img
-                className="h-full w-full flex items-center justify-center animate-[float_3s_ease-in-out_infinite]"
-                src={imgRecibo}
-                alt="Icono de recibo"
-              />
-            </section>
-
-            <section className="flex flex-col justify-center gap-6 max-w-[350px]">
-              <h3 className="text-[17px] font-bold ">
-                Generador y Emisor de Recibos y Facturas
-              </h3>
-              <p className="  font-medium text-black/70">
-                Creación de recibos detallados y facturas electrónicas
-                (digitales o impresas) con base en el consumo registrado o el
-                servicio prestado.
+            <div className="flex flex-col items-center text-center">
+              <div className="bg-blue-50 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100">
+                <Icon icon="mdi:account-wrench-outline" className="text-blue-900 w-12 h-12" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-700 mb-3">Servicio Personalizado</h3>
+              <p className="text-slate-500 font-medium">
+                Servicio técnico las 24 hrs, con técnicos capacitados para resolver y atender todo tipo de eventualidad.
               </p>
-            </section>
-          </section>
-        </section>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section className="m-5 mx-7">
-        <section className="flex items-center justify-center m-3 ">
-          <h2 className="text-2xl bg-linear-to-r from-pink-600 to-purple-600 text-transparent bg-clip-text">
-            Nuestros compromiso
-          </h2>
-        </section>
+      {/* --- FOOTER SECTION --- */}
+      <footer className="w-full bg-blue-900 text-white pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
+          <div className="flex flex-col items-center md:items-start">
+            <img className="h-20 object-contain drop-shadow-md mb-4" src={LogoTransparente} alt="Logo AdmiGas" />
+            <p className="text-blue-200 text-sm text-center md:text-left max-w-xs leading-relaxed">
+              Soluciones tecnológicas de vanguardia para el control y administración integral de Gas LP.
+            </p>
+          </div>
 
-        <section className="flex flex-col gap-6 sm:flex-row sm:py-9 transition-all duration-300 sm:min-w-0 ">
-          <section className="flex flex-col-reverse bg-black/15 items-center p-3 rounded-lg gap-2  lg:flex-col lg:min-w-0">
-            <section className="flex flex-col justify-center gap-6  max-w-[350px]">
-              <h3 className="text-[17px] font-bold ">Seguridad y Confianza</h3>
-              <p className=" font-medium text-black/70">
-                Implementamos estandares de seguridad con la finalidad de que
-                los datos se encuentren en reguardo seguro.
+          <div className="flex flex-col items-center md:items-start">
+            <h4 className="text-lg font-bold mb-5 text-sky-400 uppercase tracking-wider">Contacto</h4>
+            <div className="space-y-4 text-blue-100 text-sm">
+              <p className="flex items-center gap-3 hover:text-white transition-colors">
+                <Icon icon="mdi:web" width="22" className="text-sky-400" /> <a href="https://technoart.com.mx" target="_blank" rel="noopener noreferrer">technoart.com.mx</a>
               </p>
-            </section>
-
-            <section className=" h-[200px] w-[200px] sm:h-[170px] sm:w-[170px]">
-              <img
-                className="h-full w-full flex items-center justify-center animate-[float_3s_ease-in-out_infinite]"
-                src={imgSeguridad}
-                alt="Icono de seguridad y confianza"
-              />
-            </section>
-          </section>
-
-          <section className="flex flex-col bg-black/15 items-center p-3 rounded-lg gap-2  lg:flex-col lg:min-w-0 lg-justify-between lg:gap-9">
-            <section className=" h-[200px] w-[200px] sm:h-[170px] sm:w-[170px]">
-              <img
-                className="h-full w-full flex items-center justify-center animate-[float_3s_ease-in-out_infinite]"
-                src={imgOperativa}
-                alt="Icono de eficiencia operativa"
-              />
-            </section>
-
-            <section className=" flex flex-col justify-center gap-6  max-w-[350px]">
-              <h3 className="text-[17px] font-bold ">Eficiencia Operativa</h3>
-              <p className=" font-medium text-black/70">
-                Garantizamos una eficiencia con los mas altos estandares
-                operativos.
+              <p className="flex items-center gap-3 hover:text-white transition-colors">
+                <Icon icon="mdi:whatsapp" width="22" className="text-sky-400" /> <a href="https://wa.me/5215521758607" target="_blank" rel="noopener noreferrer">5521758607</a>
               </p>
-            </section>
-          </section>
-
-          <section className="flex flex-col-reverse bg-black/15 items-center p-3 rounded-lg gap-2 sm:justify-end lg:flex-col lg:min-w-0">
-            <section className=" flex flex-col justify-center gap-6  max-w-[350px] lg:justify-center ">
-              <h3 className="text-[17px] font-bold ">Servicio Personalizado</h3>
-              <p className=" font-medium text-black/70">
-                Servicio tecnico las 24 hrs, con tecnicos capacitados para todo
-                tipo de evento.
+              <p className="flex items-center gap-3 hover:text-white transition-colors break-all">
+                <Icon icon="mdi:email-outline" width="22" className="text-sky-400" /> <a href="mailto:contacto@technoart.com.mx">contacto@technoart.com.mx</a>
               </p>
-            </section>
+            </div>
+          </div>
 
-            <section className=" h-[200px] w-[200px] sm:h-[170px] sm:w-[170px]">
-              <img
-                className="h-full w-full flex items-center justify-center animate-[float_3s_ease-in-out_infinite]"
-                src={imgServicio}
-                alt="Icono de servicio personalizado"
-              />
-            </section>
-          </section>
-        </section>
-      </section>
+          <div className="flex flex-col items-center md:items-start">
+            <h4 className="text-lg font-bold mb-5 text-sky-400 uppercase tracking-wider">Síguenos</h4>
+            <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+              <a href="https://www.facebook.com/profile.php?id=61580540152316" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-sky-500 hover:scale-110 transition-all text-white"><Icon icon="mdi:facebook" width="22" /></a>
+              <a href="https://www.instagram.com/technoart.studio/" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-pink-500 hover:scale-110 transition-all text-white"><Icon icon="mdi:instagram" width="22" /></a>
+              <a href="https://x.com/TechnoArt22" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-sky-400 hover:scale-110 transition-all text-white"><Icon icon="mdi:twitter" width="22" /></a>
+              <a href="https://www.tiktok.com/@technoart22?lang=es" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-black hover:scale-110 transition-all text-white"><Icon icon="ic:baseline-tiktok" width="22" /></a>
+              <a href="https://www.threads.com/@technoart.studio?hl=es-la" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-gray-800 hover:scale-110 transition-all text-white"><Icon icon="simple-icons:threads" width="22" /></a>
+              <a href="https://www.linkedin.com/company/112591192/admin/dashboard/" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-blue-600 hover:scale-110 transition-all text-white"><Icon icon="mdi:linkedin" width="22" /></a>
+            </div>
+          </div>
+        </div>
 
-      <section onClick={() => navigate("/*")}  className="flex m-5">
-        <BtnIniciarSesion text="Regresar" />
-      </section>
+        <div className="border-t border-blue-800 mt-12 pt-8 text-center text-blue-300 text-xs px-6">
+          &copy; {new Date().getFullYear()} TechnoArt Studio. Todos los derechos reservados.
+        </div>
+      </footer>
     </main>
   );
 };

@@ -10,7 +10,6 @@ return (
             
         <NavBarHome/>
         <MainHome/>
-        <Footer/>
                 
     </main>
   );

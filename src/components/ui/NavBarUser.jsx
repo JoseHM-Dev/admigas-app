@@ -1,106 +1,157 @@
 import LogoAdmiGas from "../../assets/img/icono-logo.png";
 import LetrasAdmiGas from "../../assets/img/letras-logo.png";
-import { BtnAyuda } from "./BtnAyuda";
 import { Icon } from "@iconify/react";
 import { useAuth } from "../../auth/useAuth";
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export const NavBarUser = () => {
   const { user, signOut } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isServiciosOpen, setIsServiciosOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const serviciosRef = useRef(null);
 
   const handleLogout = async () => {
     await signOut();
-    navigate("/"); // Redirige al Home después de cerrar sesión
-  };
-
-  const handleClickOutside = (event) => {
-    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-      setIsDropdownOpen(false);
-    }
+    navigate("/"); 
   };
 
   useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+      if (serviciosRef.current && !serviciosRef.current.contains(event.target)) {
+        setIsServiciosOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
-  return (
-    <section className=" font-medium flex flex-col w-screen max-w-[1400px] justify-between m-auto items-center gap-3 p-3 transition-none duration-300  md:flex-row md:justify-between md:items-center md:px-15 ">
-      <section onClick={() => navigate('/*')} className="flex hover:scale-110 transition-all duration-300 items-center gap-2 hover:cursor-pointer">
-        <img className="h-20" src={LogoAdmiGas} />
-        <img className="h-10" src={LetrasAdmiGas} />
-      </section>
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > lastScrollY && window.scrollY > 50) {
+        setIsVisible(false); // Ocultar al bajar
+      } else {
+        setIsVisible(true);  // Mostrar al subir
+      }
+      setLastScrollY(window.scrollY);
+    };
 
-      <section className="relative group gap-4 items-center  md:flex ">
-        <div className="flex items-center gap-6 sm:flex">
-          <a href="http://wa.me/528148054886" target="_blank" rel="noopener noreferrer" className="hidden lg:flex">
-            
-            <BtnAyuda  texto={"Ayuda"} iconName={"line-md:chat-round-dots-twotone"} />
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
+  const menuServicios = [
+    { name: "Ventas", path: "/ventas", icon: "mdi:point-of-sale" },
+    { name: "Clientes", path: "/clientes", icon: "mdi:account-group" },
+    { name: "Créditos", path: "/creditos", icon: "mdi:credit-card-outline" },
+    { name: "Administración", path: "/administracion", icon: "mdi:cog-outline" },
+  ];
+
+  return (
+    <header className={`w-full bg-white shadow-sm sticky z-50 transition-all duration-300 ${isVisible ? 'top-0' : '-top-24'}`}>
+      <section className="font-medium flex w-full max-w-[1400px] justify-between m-auto items-center p-3 sm:px-8 lg:px-16">
+        
+        <div
+          onClick={() => navigate("/*")}
+          className="flex hover:scale-105 transition-all duration-300 items-center gap-2 sm:gap-3 hover:cursor-pointer"
+        >
+          <img className="h-10 sm:h-14 object-contain" src={LogoAdmiGas} alt="AdmiGas Logo" />
+          <img className="h-5 sm:h-7 object-contain hidden sm:block" src={LetrasAdmiGas} alt="AdmiGas Letras" />
+        </div>
+
+        <div className="relative group gap-3 sm:gap-6 items-center flex w-auto justify-end">
+          <a
+            href="https://wa.me/5215521758607"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-sky-500 font-bold transition-colors"
+          >
+            <Icon icon="mdi:whatsapp" width="22" /> Soporte
           </a>
-          <BtnAyuda
-            texto={"Servicios"}
-            isDropdown={true}
-            services={["Ventas","Clientes", "Créditos", "Administración"]}
-            iconName={"line-md:close-to-menu-transition"}
-          />
+
+          {/* --- DESPLEGABLE SERVICIOS --- */}
+          <div className="relative" ref={serviciosRef}>
+            <button
+              onClick={() => setIsServiciosOpen(!isServiciosOpen)}
+              className="flex items-center gap-1 sm:gap-2 bg-white border-2 border-slate-200 text-slate-600 hover:text-blue-900 hover:border-blue-900 hover:bg-blue-50 font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded-lg shadow-sm hover:shadow-md transition-all"
+            >
+              <Icon icon="mdi:apps" width="20" />
+              <span className="hidden sm:inline">Servicios</span>
+              <Icon icon="mdi:chevron-down" width="18" className={`hidden sm:block transition-transform duration-200 ${isServiciosOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isServiciosOpen && (
+              <div className="origin-top-right absolute right-0 mt-2 w-48 sm:w-56 rounded-xl shadow-lg bg-white border border-slate-100 divide-y divide-slate-100 focus:outline-none z-50 overflow-hidden">
+                <div className="py-2">
+                  {menuServicios.map((s) => (
+                    <button
+                      key={s.name}
+                      onClick={() => { navigate(s.path); setIsServiciosOpen(false); }}
+                      className="w-full text-left flex items-center gap-3 px-5 py-3 text-sm text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition-colors"
+                    >
+                      <Icon icon={s.icon} width="22" className="text-blue-900" />
+                      <span className="font-bold">{s.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* --- MI CUENTA --- */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="bg-black/25 rounded-[20px] px-4 py-2 shadow-lg hover:shadow-2xl hover:cursor-pointer hover:bg-black/40 transition-all duration-200 text-black/70 font-medium hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:text-white hover:-translate-y-0.5 flex items-center gap-2"
+              className="flex items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-bold py-1.5 px-3 sm:py-2.5 sm:px-4 rounded-lg shadow-md hover:shadow-lg transition-all"
             >
-              {user && user.user_metadata && user.user_metadata.avatar_url ? (
+              {user?.user_metadata?.avatar_url ? (
                 <img
                   src={user.user_metadata.avatar_url}
                   alt="User Avatar"
-                  className="w-8 h-8 rounded-full"
+                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-white"
                 />
               ) : (
-                <Icon
-                  icon="bi:person-circle"
-                  width="30"
-                  height="30"
-                />
+                <Icon icon="bi:person-circle" width="20" className="sm:w-[22px] sm:h-[22px]" />
               )}
-              <span>Mi cuenta</span>
+              <span className="hidden sm:inline">Mi cuenta</span>
             </button>
+
             {isDropdownOpen && (
-              <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white divide-y divide-gray-100 focus:outline-none ring-1 ring-black/30 ring-opacity-5 z-50">
-                <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
+              <div className="origin-top-right absolute right-0 mt-2 w-40 sm:w-48 rounded-xl shadow-lg bg-white border border-slate-100 divide-y divide-slate-100 focus:outline-none z-50 overflow-hidden">
+                <div className="py-1">
+                  <button
+                    onClick={() => {
                       navigate('/ajustes');
                       setIsDropdownOpen(false);
                     }}
-                    className="block px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:translate-x-1.5 hover:-translate-y-0.5 hover:text-white transition-all duration-150 hover:cursor-pointer"
-                    role="menuitem"
+                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition-colors font-semibold"
                   >
-                    Ajustes
-                  </a>
-                  <a
-                    href="#"
-                    className="block px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-linear-to-r from-[#5180f6] via-[#6d72f9] to-[#9777e9] hover:translate-x-1.5 hover:-translate-y-0.5 hover:text-white transition-all duration-150 hover:cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
+                    <Icon icon="mdi:cog" width="20" /> Ajustes
+                  </button>
+                  <button
+                    onClick={() => {
                       handleLogout();
+                      setIsDropdownOpen(false);
                     }}
-                    role="menuitem"
+                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 transition-colors font-semibold"
                   >
-                    Cerrar Sesión
-                  </a>
+                    <Icon icon="mdi:logout" width="20" /> Cerrar Sesión
+                  </button>
                 </div>
               </div>
             )}
           </div>
         </div>
       </section>
-    </section>
+    </header>
   );
 };

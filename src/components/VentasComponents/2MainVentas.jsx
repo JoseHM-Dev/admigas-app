@@ -241,65 +241,65 @@ export const MainVentas = () => {
   const renderEstadoBadge = () => {
     if (!turnoData) {
       return (
-        <span className="px-3 py-1 bg-gray-100 text-gray-500 text-xs font-bold uppercase rounded-full flex items-center gap-1 border border-gray-200">
-          <Icon icon="mdi:close-octagon-outline" /> Sin Turno
+        <span className="px-4 py-1.5 bg-slate-100 text-slate-500 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-slate-200">
+          <Icon icon="mdi:close-octagon-outline" width="16" /> Sin Turno
         </span>
       );
     }
     if (turnoData.porcentaje_final !== null) {
       return (
-        <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold uppercase rounded-full flex items-center gap-1 border border-green-200">
-          <Icon icon="mdi:check-circle" /> Turno Finalizado
+        <span className="px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-emerald-200">
+          <Icon icon="mdi:check-circle" width="16" /> Turno Finalizado
         </span>
       );
     }
     return (
-      <span className="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-bold uppercase rounded-full flex items-center gap-1 border border-amber-200 animate-pulse">
-        <Icon icon="mdi:clock-outline" /> Turno Abierto
+      <span className="px-4 py-1.5 bg-sky-100 text-sky-700 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-sky-200 animate-pulse">
+        <Icon icon="mdi:clock-outline" width="16" /> Turno Abierto
       </span>
     );
   };
 
   return (
-    <main className="pb-20 min-h-screen relative">
+    <main className="bg-slate-50 pb-20 min-h-screen relative font-sans">
       <div className="print:hidden">
         <Titulo Texto="Historial y Reportes" />
       </div>
 
       <section className="m-auto max-w-6xl p-4 space-y-8">
         {/* FILTROS */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-200 print:hidden">
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 print:hidden">
+          <div className="flex flex-col md:flex-row items-center gap-5 w-full md:w-auto">
+            <div className="flex items-center gap-3 w-full md:w-auto bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <div className="p-2 bg-sky-100 rounded-lg text-sky-600">
                 <Icon icon="mdi:calendar-search" width="24" />
               </div>
               <div className="flex flex-col w-full">
-                <label className="text-xs font-bold text-gray-400 uppercase">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                   Fecha de Consulta
                 </label>
                 <input
                   type="date"
                   value={fechaSeleccionada}
                   onChange={(e) => setFechaSeleccionada(e.target.value)}
-                  className="font-bold text-gray-700 bg-transparent outline-none cursor-pointer"
+                  className="font-bold text-slate-700 bg-transparent outline-none cursor-pointer w-full"
                 />
               </div>
             </div>
 
             {turnosDelDia.length > 0 && (
-              <div className="flex items-center gap-3 w-full md:w-auto border-l pl-4 border-gray-200 animate-in fade-in">
-                <div className="p-2 bg-orange-50 rounded-lg text-orange-600">
+              <div className="flex items-center gap-3 w-full md:w-auto bg-slate-50 p-3 rounded-xl border border-slate-100 animate-in fade-in">
+                <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
                   <Icon icon="mdi:clock-time-four-outline" width="24" />
                 </div>
                 <div className="flex flex-col w-full">
-                  <label className="text-xs font-bold text-gray-400 uppercase">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                     Seleccionar Turno
                   </label>
                   <select
                     value={selectedTurnoId || ""}
                     onChange={(e) => setSelectedTurnoId(Number(e.target.value))}
-                    className="font-bold text-gray-700 bg-transparent outline-none cursor-pointer pr-4"
+                    className="font-bold text-slate-700 bg-transparent outline-none cursor-pointer pr-4 w-full"
                   >
                     {turnosDelDia.map((t, index) => (
                       <option key={t.id} value={t.id}>
@@ -319,24 +319,24 @@ export const MainVentas = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
             <Link
               to="/dashboard"
-              className="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+              className="flex-1 md:flex-none px-4 py-2.5 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-blue-900 rounded-xl font-bold shadow-sm transition-all text-sm flex items-center justify-center gap-2"
             >
               <Icon icon="mdi:view-dashboard-outline" width="18" /> Dashboard
             </Link>
             {turnoData && !reporteCerrado && (
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-md transition-all text-sm flex items-center gap-2"
+                className="flex-1 md:flex-none px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-xl font-bold shadow-md transition-all text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5"
               >
                 <Icon icon="mdi:plus" width="18" /> Nueva Venta
               </button>
             )}
             <button
               onClick={handlePrint}
-              className="px-4 py-2 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+              className="flex-1 md:flex-none px-4 py-2.5 bg-sky-500 text-white hover:bg-sky-600 rounded-xl font-bold shadow-md transition-all text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5"
             >
               <Icon icon="mdi:printer" width="18" /> Imprimir
             </button>
@@ -348,18 +348,18 @@ export const MainVentas = () => {
             <Icon
               icon="line-md:loading-loop"
               width="48"
-              className="text-indigo-500 mb-4"
+              className="text-sky-500 mb-4"
             />
-            <p className="text-gray-400 animate-pulse">Cargando reporte...</p>
+            <p className="text-slate-400 font-bold animate-pulse">Cargando reporte...</p>
           </div>
         ) : (
           <div className="print:p-0">
             {/* ENCABEZADO */}
             <div className="text-center mb-8 print:text-left print:mb-6">
-              <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tight">
+              <h2 className="text-3xl font-extrabold text-blue-900 tracking-tight">
                 Reporte Operativo
               </h2>
-              <p className="text-gray-500 font-medium text-lg">
+              <p className="text-slate-500 font-bold text-lg mt-1">
                 {new Date(fechaSeleccionada + "T00:00:00").toLocaleDateString(
                   "es-MX",
                   {
@@ -371,7 +371,7 @@ export const MainVentas = () => {
                 )}
               </p>
               {turnoData && (
-                <p className="text-xs text-gray-400 font-bold uppercase mt-1">
+                <p className="text-xs text-slate-400 font-extrabold uppercase tracking-wider mt-2">
                   ID Turno: {turnoData.id}
                 </p>
               )}
@@ -384,58 +384,60 @@ export const MainVentas = () => {
               <>
                 {/* FOTOS EVIDENCIA */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:grid-cols-2 print:gap-4">
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                    <div className="bg-blue-600 p-4 flex justify-between items-center text-white print:bg-gray-200 print:text-black">
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    <div className="bg-slate-50 border-b border-slate-100 p-4 flex justify-between items-center text-slate-700 print:bg-gray-200 print:text-black">
                       <span className="font-bold text-sm uppercase flex items-center gap-2">
-                        <Icon icon="mdi:login" /> Inicio de Turno
+                        <Icon icon="mdi:login" className="text-sky-500" width="20" /> Inicio de Turno
                       </span>
-                      <span className="text-xs bg-white/20 px-2 py-1 rounded">
+                      <span className="text-xs bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold shadow-sm">
                         {turnoData.registrador_inicial?.nombre}
                       </span>
                     </div>
-                    <div className="p-6 flex gap-6 items-center">
-                      <div className="w-1/2">
-                        <p className="text-xs text-gray-400 uppercase font-bold">
+                    <div className="p-6 flex flex-col sm:flex-row gap-6 items-center">
+                      <div className="w-full sm:w-1/2 text-center sm:text-left">
+                        <p className="text-xs text-slate-400 uppercase font-extrabold tracking-wider">
                           Nivel Inicial
                         </p>
-                        <p className="text-4xl font-black text-gray-800">
+                        <p className="text-4xl font-black text-slate-800 mt-1">
                           {turnoData.porcentaje_inicial}%
                         </p>
                       </div>
-                      <div className="w-1/2 aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                      <div className="w-full sm:w-1/2 aspect-video sm:aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
                         <img
                           src={turnoData.url_inicial}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                           alt="Ini"
+                          onClick={() => setPreviewImage(turnoData.url_inicial)}
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                    <div className="bg-rose-600 p-4 flex justify-between items-center text-white print:bg-gray-200 print:text-black">
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    <div className="bg-slate-50 border-b border-slate-100 p-4 flex justify-between items-center text-slate-700 print:bg-gray-200 print:text-black">
                       <span className="font-bold text-sm uppercase flex items-center gap-2">
-                        <Icon icon="mdi:logout" /> Cierre de Turno
+                        <Icon icon="mdi:logout" className="text-rose-500" width="20" /> Cierre de Turno
                       </span>
                     </div>
-                    <div className="p-6 flex gap-6 items-center">
-                      <div className="w-1/2">
-                        <p className="text-xs text-gray-400 uppercase font-bold">
+                    <div className="p-6 flex flex-col sm:flex-row gap-6 items-center">
+                      <div className="w-full sm:w-1/2 text-center sm:text-left">
+                        <p className="text-xs text-slate-400 uppercase font-extrabold tracking-wider">
                           Nivel Final
                         </p>
-                        <p className="text-4xl font-black text-gray-800">
+                        <p className="text-4xl font-black text-slate-800 mt-1">
                           {turnoData.porcentaje_final ?? "--"}%
                         </p>
                       </div>
-                      <div className="w-1/2 aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                      <div className="w-full sm:w-1/2 aspect-video sm:aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
                         {turnoData.url_final ? (
                           <img
                             src={turnoData.url_final}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                             alt="Fin"
+                            onClick={() => setPreviewImage(turnoData.url_final)}
                           />
                         ) : (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
                             Pendiente
                           </span>
                         )}
@@ -450,40 +452,40 @@ export const MainVentas = () => {
 
                 {(plantData.autotanque.length > 0 ||
                   plantData.carburacion.length > 0) && (
-                  <div className="mb-8 bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-                    <h3 className="font-bold text-gray-800 mb-4 flex gap-2">
-                      <Icon icon="mdi:factory" className="text-orange-500" />{" "}
-                      Planta
+                  <div className="mb-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <h3 className="font-extrabold text-slate-800 text-lg mb-6 flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <Icon icon="mdi:factory" width="24" className="text-amber-500" />{" "}
+                      Registro de Planta
                     </h3>
                     {/* --- SECCIÓN AUTOTANQUE CON FOTOS --- */}
                     {plantData.autotanque.map((a, i) => (
                       <div
                         key={`auto-${i}`}
-                        className="flex flex-col md:flex-row justify-between items-center border-b py-4 last:border-0 border-gray-100 gap-4"
+                        className="flex flex-col md:flex-row justify-between items-center border-b py-4 last:border-0 border-slate-100 gap-4"
                       >
                         {/* 1. Título y Precio */}
                         <div className="flex flex-col w-full md:w-1/4">
-                          <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                          <span className="text-sm font-extrabold text-slate-700 flex items-center gap-2">
+                            <div className="p-2 bg-sky-50 rounded-lg text-sky-500">
                               <Icon icon="hugeicons:tanker-truck" width="20" />
                             </div>
                             Carga Autotanque
                           </span>
-                          <span className="text-xs text-gray-400 font-medium ml-11">
+                          <span className="text-[11px] text-slate-400 font-bold ml-11 mt-1 tracking-wider uppercase">
                             Precio: {formatMoney(a.precio)}
                           </span>
                         </div>
 
                         {/* 2. NIVELES Y FOTOS (Centro) */}
-                        <div className="flex items-center justify-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100 w-full md:w-auto">
+                        <div className="flex items-center justify-center gap-5 bg-slate-50 px-5 py-3 rounded-xl border border-slate-100 w-full md:w-auto">
                           {/* INICIAL */}
                           <div className="flex flex-col items-center gap-1 group">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase">
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                               Inicial
                             </span>
                             <div
                               onClick={() => setPreviewImage(a.url_inicial)}
-                              className="relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 shadow-sm w-12 h-12 hover:ring-2 hover:ring-blue-400 transition-all"
+                              className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-14 h-14 hover:ring-2 hover:ring-sky-400 transition-all"
                             >
                               <img
                                 src={a.url_inicial}
@@ -492,25 +494,25 @@ export const MainVentas = () => {
                               />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                             </div>
-                            <span className="text-xs font-bold text-gray-600">
+                            <span className="text-xs font-black text-slate-600">
                               {a.porcentaje_inicial}%
                             </span>
                           </div>
 
                           <Icon
                             icon="mdi:arrow-right-thin"
-                            className="text-gray-300"
-                            width="24"
+                            className="text-slate-300"
+                            width="28"
                           />
 
                           {/* FINAL */}
                           <div className="flex flex-col items-center gap-1 group">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase">
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
                               Final
                             </span>
                             <div
                               onClick={() => setPreviewImage(a.url_final)}
-                              className="relative cursor-pointer overflow-hidden rounded-lg border border-gray-200 shadow-sm w-12 h-12 hover:ring-2 hover:ring-green-400 transition-all"
+                              className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-14 h-14 hover:ring-2 hover:ring-emerald-400 transition-all"
                             >
                               <img
                                 src={a.url_final}
@@ -519,7 +521,7 @@ export const MainVentas = () => {
                               />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                             </div>
-                            <span className="text-xs font-bold text-blue-600">
+                            <span className="text-xs font-black text-sky-600">
                               {a.porcentaje_final}%
                             </span>
                           </div>
@@ -528,15 +530,15 @@ export const MainVentas = () => {
                         {/* 3. Totales */}
                         <div className="text-right w-full md:w-1/4">
                           <div className="flex flex-col items-end">
-                            <span className="text-[10px] uppercase font-bold text-gray-400">
+                            <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">
                               Total Litros
                             </span>
-                            <span className="font-black text-gray-800 text-xl">
+                            <span className="font-black text-slate-800 text-2xl">
                               {a.litros}
                             </span>
                           </div>
-                          <div className="mt-1">
-                            <span className="text-xs text-green-700 font-bold bg-green-100 px-2 py-1 rounded-md border border-green-200">
+                          <div className="mt-1.5">
+                            <span className="text-xs text-emerald-700 font-extrabold bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-200">
                               {formatMoney(a.monto)}
                             </span>
                           </div>
@@ -547,38 +549,39 @@ export const MainVentas = () => {
                     {plantData.carburacion.map((c, i) => (
                       <div
                         key={i}
-                        className="flex justify-between border-b py-2 last:border-0"
+                        className="flex justify-between border-b border-slate-100 py-3 last:border-0 items-center"
                       >
-                        <span>Salida Carburación</span>
-                        <span className="font-bold">{c.litros} Lts</span>
+                        <span className="font-bold text-slate-600 text-sm flex items-center gap-2"><Icon icon="mdi:gas-station" className="text-sky-500"/> Salida Carburación</span>
+                        <span className="font-black text-slate-800 bg-slate-100 px-3 py-1 rounded-lg">{c.litros} Lts</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {/* TABLA DE VENTAS CON CLICK */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="p-3 bg-blue-50 text-blue-800 text-xs font-bold text-center border-b border-blue-100 flex items-center justify-center gap-2">
-                    <Icon icon="mdi:information-outline" />
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="p-3 bg-sky-50 text-sky-700 text-xs font-bold text-center border-b border-sky-100 flex items-center justify-center gap-2">
+                    <Icon icon="mdi:information-outline" width="18" />
                     Da clic en cualquier venta para ver todos sus detalles
                   </div>
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[10px]">
-                      <tr>
-                        <th className="px-4 py-3">Fecha</th>
-                        <th className="px-4 py-3">Cliente</th>
-                        <th className="px-4 py-3 text-center">Lts</th>
-                        <th className="px-4 py-3 text-right">Total</th>
-                        <th className="px-4 py-3 text-center">Pago</th>
-                        <th className="px-4 py-3 print:hidden"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-sm text-left whitespace-nowrap">
+                      <thead className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-5 py-4">Fecha</th>
+                          <th className="px-5 py-4">Cliente</th>
+                          <th className="px-5 py-4 text-center">Lts</th>
+                          <th className="px-5 py-4 text-right">Total</th>
+                          <th className="px-5 py-4 text-center">Pago</th>
+                          <th className="px-5 py-4 print:hidden text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
                       {ventas.length === 0 ? (
                         <tr>
                           <td
                             colSpan="6"
-                            className="p-8 text-center text-gray-400"
+                            className="p-10 text-center text-slate-400 font-medium"
                           >
                             No hay ventas registradas en este turno.
                           </td>
@@ -591,9 +594,8 @@ export const MainVentas = () => {
                             className="hover:bg-blue-50 cursor-pointer transition-colors group"
                           >
                             <td className="px-4 py-3 font-mono text-xs text-gray-400 group-hover:text-blue-600">
-                              {/* AQUÍ USAMOS LA HORA REAL DE CREACIÓN SI EXISTE, O LA FECHA CARGA */}
                               {fixFechaVisual(
-                                v.created_at || v.fecha_carga,
+                                v.fecha_carga,
                                 true
                               )}
                             </td>
@@ -628,12 +630,12 @@ export const MainVentas = () => {
                                 {v.tipo_pago}
                               </span>
                             </td>
-                            <td className="px-4 py-3 print:hidden text-right">
+                            <td className="px-5 py-3 print:hidden text-center">
                               <button
                                 onClick={(e) => handleDelete(e, v.id_carga)}
-                                className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-1 rounded-full transition-colors"
+                                className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-2 rounded-full transition-all"
                               >
-                                <Icon icon="mdi:trash-can" width="18" />
+                                <Icon icon="mdi:trash-can" width="20" />
                               </button>
                             </td>
                           </tr>
@@ -641,18 +643,19 @@ export const MainVentas = () => {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </>
             ) : (
-              <div className="p-12 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+              <div className="p-16 text-center bg-white rounded-2xl border border-dashed border-slate-300 shadow-sm">
                 <Icon
                   icon="mdi:calendar-remove"
-                  className="mx-auto text-gray-300 w-16 h-16 mb-2"
+                  className="mx-auto text-slate-200 w-20 h-20 mb-4"
                 />
-                <h3 className="text-lg font-bold text-gray-500">
+                <h3 className="text-lg font-extrabold text-slate-500">
                   No hay turnos registrados
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-slate-400 text-sm font-medium mt-1">
                   No se inició operación en esta fecha.
                 </p>
               </div>
@@ -663,42 +666,43 @@ export const MainVentas = () => {
 
       {/* --- MODAL DE DETALLE DE VENTA (SOLO LECTURA) --- */}
       {selectedVentaDetalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
             {/* Header */}
-            <div className="bg-slate-800 p-4 text-white flex justify-between items-center">
+            <div className="bg-blue-900 p-5 text-white flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <Icon icon="mdi:receipt-text-outline" /> Detalle de Venta
+                <h3 className="font-extrabold text-lg flex items-center gap-2 text-white">
+                  <Icon icon="mdi:receipt-text-outline" width="24" className="text-sky-400" /> Detalle de Venta
                 </h3>
-                <p className="text-xs text-slate-400">
-                  ID: {selectedVentaDetalle.id_carga}
+                <p className="text-xs text-blue-200 mt-1 font-medium tracking-wider">
+                  ID Carga: {selectedVentaDetalle.id_carga}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedVentaDetalle(null)}
-                className="p-1 hover:bg-white/20 rounded-full transition-colors"
+                className="p-2 bg-blue-800 hover:bg-blue-700 rounded-full transition-colors text-white"
               >
-                <Icon icon="mdi:close" width="24" />
+                <Icon icon="mdi:close" width="20" />
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
               {/* Sección 1: Cliente */}
-              <div className="flex gap-4 items-start">
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                  <Icon icon="mdi:account" width="24" />
+              <div className="flex gap-4 items-start bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="p-3 bg-sky-50 text-sky-600 rounded-full">
+                  <Icon icon="mdi:account" width="28" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
                     Cliente
                   </p>
-                  <p className="font-bold text-gray-800 text-lg leading-tight">
+                  <p className="font-black text-slate-800 text-lg leading-tight mt-0.5">
                     {selectedVentaDetalle.casa_habitacion?.nombre_cliente ||
                       "Público General"}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-xs font-bold text-slate-500 mt-1.5 flex items-center gap-1">
+                    <Icon icon="mdi:map-marker" className="text-sky-500"/>
                     {selectedVentaDetalle.casa_habitacion?.calle} #
                     {selectedVentaDetalle.casa_habitacion?.numero},{" "}
                     {selectedVentaDetalle.casa_habitacion?.colonia}
@@ -706,34 +710,32 @@ export const MainVentas = () => {
                 </div>
               </div>
 
-              <hr className="border-gray-100" />
-
               {/* Sección 2: Operativo (Litros y Ret) */}
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
                     Totales
                   </p>
-                  <p className="font-bold text-gray-800 text-lg">
+                  <p className="font-black text-slate-800 text-xl mt-1">
                     {selectedVentaDetalle.consumo_litros} L
                   </p>
                 </div>
-                <div className="bg-red-50 p-2 rounded-lg border border-red-100">
-                  <p className="text-[10px] font-bold text-red-400 uppercase">
+                <div className="bg-rose-50 p-3 rounded-2xl border border-rose-100 shadow-sm">
+                  <p className="text-[10px] font-extrabold text-rose-400 uppercase tracking-widest">
                     RET
                   </p>
-                  <p className="font-bold text-red-700 text-lg">
+                  <p className="font-black text-rose-700 text-xl mt-1">
                     {selectedVentaDetalle.ret
                       ? `-${selectedVentaDetalle.ret}`
                       : "0"}{" "}
                     L
                   </p>
                 </div>
-                <div className="bg-green-50 p-2 rounded-lg border border-green-100">
-                  <p className="text-[10px] font-bold text-green-600 uppercase">
+                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-100 shadow-sm">
+                  <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest">
                     Reales
                   </p>
-                  <p className="font-black text-green-700 text-lg">
+                  <p className="font-black text-emerald-700 text-xl mt-1">
                     {(
                       Number(selectedVentaDetalle.consumo_litros) -
                       Number(selectedVentaDetalle.ret || 0)
@@ -744,9 +746,9 @@ export const MainVentas = () => {
               </div>
 
               {/* Sección 3: Financiero */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                 <div className="flex justify-between items-end">
-                  <span className="text-sm font-medium text-slate-500">
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
                     Monto Total
                   </span>
                   <span className="text-2xl font-black text-slate-800">
@@ -754,26 +756,26 @@ export const MainVentas = () => {
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center text-sm border-t border-slate-200 pt-2 mt-2">
-                  <span className="text-slate-500">Método Principal:</span>
-                  <span className="font-bold uppercase text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center text-sm border-t border-slate-100 pt-4">
+                  <span className="text-slate-500 font-bold">Método Principal:</span>
+                  <span className="font-black uppercase text-slate-700 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 shadow-sm text-xs tracking-wider">
                     {selectedVentaDetalle.tipo_pago}
                   </span>
                 </div>
 
                 {/* Detalles extra si es Crédito o Mixto */}
                 {selectedVentaDetalle.monto_pendiente > 0 && (
-                  <div className="bg-red-50 p-2 rounded border border-red-100 mt-2">
-                    <div className="flex justify-between text-xs text-red-700 font-bold">
+                  <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mt-2">
+                    <div className="flex justify-between text-sm text-rose-700 font-black">
                       <span>Deuda/Pendiente:</span>
                       <span>
                         {formatMoney(selectedVentaDetalle.monto_pendiente)}
                       </span>
                     </div>
                     {selectedVentaDetalle.tipo_pago_resto && (
-                      <div className="flex justify-between text-[10px] text-red-500 mt-1">
-                        <span>Resto pagado con:</span>
-                        <span className="uppercase">
+                      <div className="flex justify-between text-xs font-bold text-rose-500 mt-2 border-t border-rose-100/50 pt-2">
+                        <span>Resto pagado:</span>
+                        <span className="uppercase font-black">
                           {selectedVentaDetalle.tipo_pago_resto}
                         </span>
                       </div>
@@ -782,16 +784,16 @@ export const MainVentas = () => {
                 )}
               </div>
 
-              <div className="text-center text-xs text-gray-400 font-mono">
-                {/* USAMOS LA FUNCION DE CORRECCIÓN AQUÍ TAMBIÉN */}
-                Fecha Carga: {fixFechaVisual(selectedVentaDetalle.fecha_carga)}
+              <div className="text-center text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
+                <Icon icon="mdi:calendar-clock" />
+                {fixFechaVisual(selectedVentaDetalle.fecha_carga)}
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 border-t border-gray-100 flex justify-end">
+            <div className="bg-white p-5 border-t border-slate-200 flex justify-end">
               <button
                 onClick={() => setSelectedVentaDetalle(null)}
-                className="px-6 py-2 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-700 transition-colors w-full"
+                className="px-6 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all w-full text-sm shadow-md"
               >
                 Cerrar
               </button>

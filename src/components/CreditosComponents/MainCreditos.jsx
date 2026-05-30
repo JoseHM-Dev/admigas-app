@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../supabaseClient";
 import { Titulo } from "../ui/Titulo";
 import { Link } from "react-router-dom";
@@ -16,6 +16,12 @@ export const MainCreditos = () => {
   const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState("grid"); // "grid" o "carousel"
+
+  // Referencias para Botón Flotante
+  const [isControlBarVisible, setIsControlBarVisible] = useState(true);
+  const controlBarRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // --- FUNCIÓN PARA CORREGIR LA FECHA/HORA ---
   const fixFechaVisual = (fechaStr) => {
@@ -35,6 +41,21 @@ export const MainCreditos = () => {
       minute: "2-digit",
     });
   };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsControlBarVisible(entry.isIntersecting);
+      },
+      { threshold: 0, rootMargin: "-80px 0px 0px 0px" }
+    );
+    if (controlBarRef.current) {
+      observer.observe(controlBarRef.current);
+    }
+    return () => {
+      if (controlBarRef.current) observer.unobserve(controlBarRef.current);
+    };
+  }, []);
 
   const fetchCuentas = useCallback(async () => {
     setCargando(true);
@@ -111,6 +132,13 @@ export const MainCreditos = () => {
     }
   };
 
+  const handleFabClick = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 500);
+  };
+
   const filteredCuentas = cuentas.filter(
     (c) =>
       c.casa_habitacion.nombre_cliente
@@ -125,133 +153,201 @@ export const MainCreditos = () => {
       currency: "MXN",
     });
 
+  // Renderizador reutilizable de tarjetas
+  const renderCuentaCard = (cuenta) => {
+    const isCarousel = viewMode === "carousel";
+    return (
+      <div
+        key={cuenta.id}
+        onClick={() => handleCardClick(cuenta)}
+        className={`bg-white rounded-2xl shadow-sm hover:shadow-md border border-slate-200 cursor-pointer transition-all duration-300 flex flex-col relative overflow-hidden group ${
+          isCarousel ? "shrink-0 snap-center w-[85vw] sm:w-[340px]" : "w-full"
+        }`}
+      >
+        <div className="h-1.5 w-full bg-rose-500 absolute top-0 left-0"></div>
+        
+        <div className="p-5 flex-1 flex flex-col mt-1">
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex items-start gap-3 w-full">
+              <div className="p-3 bg-rose-50 text-rose-500 rounded-full shrink-0 border border-rose-100">
+                <Icon icon="mdi:account-cash" width="24" />
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="font-black text-slate-800 text-[17px] leading-tight group-hover:text-blue-900 transition-colors truncate">
+                  {cuenta.casa_habitacion.nombre_cliente}
+                </h3>
+                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mt-1.5 flex items-center gap-1 truncate">
+                  <Icon icon="mdi:map-marker" className="text-sky-500 shrink-0" />
+                  <span className="truncate">{cuenta.casa_habitacion.calle} #{cuenta.casa_habitacion.numero}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto bg-slate-50 border border-slate-100 rounded-xl p-4 flex justify-between items-end">
+            <div>
+              <p className="text-[10px] uppercase text-slate-400 font-extrabold tracking-widest">
+                Saldo Pendiente
+              </p>
+              <p className="text-2xl font-black text-rose-600 mt-0.5">
+                {formatMoney(cuenta.saldo_actual)}
+              </p>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedCuenta(cuenta);
+                setIsPagoModalOpen(true);
+              }}
+              className="bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-bold shadow-md shadow-emerald-500/30 hover:bg-emerald-600 hover:-translate-y-0.5 transition-all flex items-center gap-1.5 z-10"
+            >
+              <Icon icon="mdi:cash-fast" width="20" /> <span className="hidden sm:inline">Abonar</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <main className="min-h-screen pb-20">
-      <div className="pt-6">
+    <main className="bg-slate-50 min-h-screen pb-20 font-sans relative">
+      {/* --- BOTÓN FLOTANTE DE BÚSQUEDA --- */}
+      <button
+        onClick={handleFabClick}
+        className={`fixed bottom-6 right-6 z-40 bg-sky-500 text-white p-4 rounded-full shadow-lg shadow-sky-500/40 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2 ${
+          isControlBarVisible ? "opacity-0 invisible translate-y-5" : "opacity-100 visible translate-y-0"
+        }`}
+        title="Buscar Cliente"
+      >
+        <Icon icon="mdi:magnify" width="28" />
+      </button>
+
+      <div className="pt-6 print:hidden">
         <Titulo Texto="Cartera de Clientes" />
       </div>
 
       <section className="m-auto max-w-6xl p-4 space-y-6">
-        {/* BARRA SUPERIOR */}
-        <div className="flex flex-col md:flex-row justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-2 w-full">
-            <Icon icon="mdi:magnify" className="text-gray-400" width="24" />
+        {/* --- BARRA DE CONTROL SUPERIOR --- */}
+        <div ref={controlBarRef} className="flex flex-col md:flex-row items-center justify-between gap-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 relative z-20">
+          {/* Buscador */}
+          <div className="relative w-full md:w-96 group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Icon
+                icon="mdi:search"
+                className="text-slate-400 group-focus-within:text-sky-500 transition-colors"
+                width="22"
+              />
+            </div>
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Buscar cliente..."
-              className="w-full outline-none font-bold text-gray-700"
+              placeholder="Buscar por nombre o calle..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 font-medium"
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsManualModalOpen(true)}
-              className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-bold flex items-center gap-2 hover:bg-indigo-100 transition"
-            >
-              <Icon icon="mdi:plus-box-multiple" width="24" /> Añadir
-            </button>
+
+          {/* Botones de Acción */}
+          <div className="flex gap-4 w-full md:w-auto">
             <Link
               to="/dashboard"
-              className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold flex items-center gap-2"
+              className="flex-1 md:flex-none justify-center px-5 py-3 border border-slate-200 text-slate-600 bg-white rounded-xl hover:bg-slate-50 hover:text-blue-900 shadow-sm font-bold transition-all flex items-center gap-2"
             >
-              <Icon icon="mdi:arrow-left" /> Dashboard
+              <Icon icon="line-md:arrow-left" width="20" />{" "}
+              <span className="hidden sm:inline">Dashboard</span>
             </Link>
+            <button
+              onClick={() => setIsManualModalOpen(true)}
+              className="flex-1 md:flex-none justify-center px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl shadow-md shadow-sky-500/30 font-bold transition-all transform hover:-translate-y-0.5 flex items-center gap-2"
+            >
+              <Icon icon="mdi:plus-box-multiple" width="22" /> Añadir Crédito
+            </button>
+          </div>
+        </div>
+
+        {/* --- CONTROLES DE VISTA --- */}
+        <div className="flex justify-between items-center mb-6 px-1">
+          <p className="text-slate-500 font-bold text-sm">
+            Deudores Activos: <span className="text-blue-900 bg-blue-100 px-2.5 py-0.5 rounded-full">{filteredCuentas.length}</span>
+          </p>
+          <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden shrink-0">
+            <button onClick={() => setViewMode("grid")} className={`px-4 py-2 transition-colors ${viewMode === "grid" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+              <Icon icon="mdi:view-grid" width="20" className="mx-auto" />
+            </button>
+            <button onClick={() => setViewMode("carousel")} className={`px-4 py-2 transition-colors ${viewMode === "carousel" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+              <Icon icon="mdi:view-carousel" width="20" className="mx-auto" />
+            </button>
           </div>
         </div>
 
         {/* GRID DE DEUDORES */}
         {filteredCuentas.length === 0 && !cargando ? (
-          <div className="text-center py-10 text-gray-400">
-            No hay clientes con deuda pendiente.
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
+            <div className="p-6 bg-emerald-50 rounded-full mb-4">
+              <Icon icon="mdi:check-decagram-outline" className="text-emerald-400 w-16 h-16" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-600 mb-2">
+              ¡Excelente!
+            </h3>
+            <p className="text-slate-500 font-medium text-center">
+              No hay clientes con deuda pendiente según la búsqueda.
+            </p>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6 items-start">
+            {filteredCuentas.map(renderCuentaCard)}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredCuentas.map((cuenta) => (
-              <div
-                key={cuenta.id}
-                onClick={() => handleCardClick(cuenta)}
-                className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer transition-all hover:shadow-lg hover:border-blue-300 relative overflow-hidden group"
-              >
-                <div className="absolute top-0 right-0 p-2 bg-red-50 rounded-bl-xl text-xs font-bold text-red-600 border-b border-l border-red-100">
-                  DEUDA TOTAL
-                </div>
-                <h3 className="font-bold text-gray-800 text-lg truncate pr-16">
-                  {cuenta.casa_habitacion.nombre_cliente}
-                </h3>
-                <p className="text-xs text-gray-500 mb-4 truncate">
-                  {cuenta.casa_habitacion.calle} #
-                  {cuenta.casa_habitacion.numero}
-                </p>
-
-                <div className="flex justify-between items-end">
-                  <div>
-                    <p className="text-[10px] uppercase text-gray-400 font-bold">
-                      Saldo Pendiente
-                    </p>
-                    <p className="text-3xl font-black text-slate-800">
-                      {formatMoney(cuenta.saldo_actual)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedCuenta(cuenta); // Aseguramos que se seleccione para el modal de pago
-                      setIsPagoModalOpen(true);
-                    }}
-                    className="bg-green-500 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-green-200 hover:bg-green-600 transition z-10"
-                  >
-                    Abonar
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="flex overflow-x-auto gap-6 pb-8 pt-2 snap-x snap-mandatory scroll-smooth hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-1 items-start">
+            {filteredCuentas.map(renderCuentaCard)}
           </div>
         )}
       </section>
 
       {/* --- MODAL HISTORIAL --- */}
       {selectedCuenta && !isPagoModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
             {/* Header Modal */}
-            <div className="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+            <div className="bg-blue-900 p-5 flex justify-between items-center shrink-0 text-white">
               <div>
-                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                <h3 className="font-extrabold text-lg flex items-center gap-2">
                   <Icon
                     icon="mdi:format-list-bulleted-type"
-                    className="text-blue-600"
+                    className="text-sky-400"
+                    width="24"
                   />
                   Estado de Cuenta
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-blue-200 mt-1 font-medium tracking-wider">
                   {selectedCuenta.casa_habitacion.nombre_cliente}
                 </p>
               </div>
               <button
                 onClick={handleCloseHistory}
-                className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+                className="p-2 bg-blue-800 hover:bg-blue-700 rounded-full transition-colors text-white"
               >
-                <Icon icon="mdi:close" width="24" className="text-gray-500" />
+                <Icon icon="mdi:close" width="20" />
               </button>
             </div>
 
             {/* Body con Scroll */}
             <div className="overflow-y-auto p-0">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-100 text-gray-500 font-bold uppercase text-[10px] sticky top-0 z-10 shadow-sm">
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 z-10 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3">Fecha</th>
-                    <th className="px-6 py-3">Descripción</th>
-                    <th className="px-6 py-3 text-center">Tipo</th>
-                    <th className="px-6 py-3 text-right">Monto</th>
-                    <th className="px-2 py-3"></th>
+                    <th className="px-5 py-4">Fecha</th>
+                    <th className="px-5 py-4">Descripción</th>
+                    <th className="px-5 py-4 text-center">Tipo</th>
+                    <th className="px-5 py-4 text-right">Monto</th>
+                    <th className="px-5 py-4 text-center">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-slate-100">
                   {movimientos.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="p-8 text-center text-gray-400">
+                      <td colSpan="5" className="p-10 text-center text-slate-400 font-medium">
                         Cargando movimientos...
                       </td>
                     </tr>
@@ -259,43 +355,42 @@ export const MainCreditos = () => {
                     movimientos.map((mov) => (
                       <tr
                         key={mov.id}
-                        className="hover:bg-blue-50 transition-colors"
+                        className="hover:bg-sky-50 transition-colors group"
                       >
-                        <td className="px-6 py-3 font-mono text-gray-500 text-xs">
-                          {/* USAMOS LA FUNCIÓN DE CORRECCIÓN AQUÍ */}
+                        <td className="px-5 py-4 font-mono text-slate-500 text-xs font-bold">
                           {fixFechaVisual(mov.fecha)}
                         </td>
-                        <td className="px-6 py-3 text-gray-700 font-medium">
+                        <td className="px-5 py-4 text-slate-700 font-medium">
                           {mov.descripcion}
                         </td>
-                        <td className="px-6 py-3 text-center">
+                        <td className="px-5 py-4 text-center">
                           <span
-                            className={`px-2 py-1 rounded text-[10px] font-bold border ${
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
                               mov.tipo === "CARGO"
-                                ? "bg-orange-50 text-orange-700 border-orange-100"
-                                : "bg-green-50 text-green-700 border-green-100"
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : "bg-emerald-50 text-emerald-600 border-emerald-100"
                             }`}
                           >
                             {mov.tipo}
                           </span>
                         </td>
                         <td
-                          className={`px-6 py-3 text-right font-bold ${
+                          className={`px-5 py-4 text-right font-black ${
                             mov.tipo === "CARGO"
-                              ? "text-orange-600"
-                              : "text-green-600"
+                              ? "text-rose-600"
+                              : "text-emerald-600"
                           }`}
                         >
                           {mov.tipo === "ABONO" ? "-" : "+"}{" "}
                           {formatMoney(mov.monto)}
                         </td>
-                        <td className="px-2 py-3 text-right">
+                        <td className="px-5 py-4 text-center">
                           <button
                             onClick={() => handleDeleteMovimiento(mov.id)}
-                            className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                            className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
                             title="Eliminar movimiento"
                           >
-                            <Icon icon="mdi:trash-can-outline" width="18" />
+                            <Icon icon="mdi:trash-can" width="20" />
                           </button>
                         </td>
                       </tr>
@@ -306,16 +401,16 @@ export const MainCreditos = () => {
             </div>
 
             {/* Footer Acciones Rápidas */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 shrink-0">
+            <div className="p-5 border-t border-slate-200 bg-white flex justify-end gap-3 shrink-0">
               <button
                 onClick={handleCloseHistory}
-                className="px-4 py-2 border rounded-lg hover:bg-white text-sm font-bold text-gray-600"
+                className="px-6 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 text-sm font-bold text-slate-600 transition-colors"
               >
                 Cerrar
               </button>
               <button
                 onClick={() => setIsPagoModalOpen(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 text-sm font-bold flex items-center gap-2"
+                className="px-6 py-3 bg-emerald-500 text-white rounded-xl shadow-md shadow-emerald-500/30 hover:bg-emerald-600 hover:-translate-y-0.5 text-sm font-bold flex items-center gap-2 transition-all"
               >
                 <Icon icon="mdi:cash-plus" /> Nuevo Abono
               </button>

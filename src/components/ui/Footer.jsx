@@ -1,72 +1,54 @@
 import LogoTechnoArt from "../../assets/img/icono technoart negro.png";
 import LogoLetrasTechnoArt from "../../assets/img/letras techno arte.png";
 import { Icon } from "@iconify/react";
+import LogoTransparente from "../../assets/img/logo-transparente.png";
+
 
 export const Footer = () => {
   return (
-    <main className="w-100% p-3 ">
-      <footer className="relative z-40 flex flex-col max-w-[1400px] m-auto  items-center gap-5 md:flex-row-reverse md:justify-between transition-all duration-300">
-        <section className="flex flex-col gap-3 ">
-          <h4 className="text-center font-bold text-lg text-black/70 md:text-justify">
-            Soporte
-          </h4>
-
-          <p className="text-center font-bold text-black/60 md:text-justify">
-            Tel.: +52 81 4805 4886
-            <br />
-            Mail: technoart.creatividad@gamail.com
-          </p>
-        </section>
-
-        <section className="flex opacity-60 gap-5 cursor-pointer  ">
-          <a href="https://www.facebook.com/share/1RetUBfqR1/?mibextid=wwXIfr">
-            <Icon
-              className="hover:scale-110 transition-all duration-300"
-              icon="raphael:facebook"
-              width="31"
-              height="31"
-            />
-          </a>
-
-          <a href="https://www.tiktok.com/@technoart98?_r=1&_t=ZS-91ex85Q7srU">
-            <Icon
-              className="hover:scale-110 transition-all duration-300"
-              icon="lineicons:tiktok-alt"
-              width="34"
-              height="34"
-            />
-          </a>
-
-          <a href="https://www.instagram.com/technoart.creativity?igsh=MWtwbGQ4eGNobDI4ZQ%3D%3D&utm_source=qr">
-            <Icon
-              className="hover:scale-110 transition-all duration-300"
-              icon="uil:instagram-alt"
-              width="32"
-              height="32"
-            />
-          </a>
-
-          <a href="http://wa.me/528148054886">
-            <Icon
-              className="hover:scale-110 transition-all duration-300"
-              icon="uil:whatsapp-alt"
-              width="32"
-              height="32"
-            />
-          </a>
-        </section>
-
-        <section className="flex flex-col items-center p-3 ">
-          <section className="opacity-60 md:flex md:items-center">
-            <img className="h-30 w-30" src={LogoTechnoArt} alt="" />
-            <img className="h-5 w-30" src={LogoLetrasTechnoArt} alt="" />
-          </section>
-
-          <p className="text-center font-bold text-black/60 md:text-center">
-            Usted es lo más importante para nosotros
-          </p>
-        </section>
-      </footer>
+    <main>
+      {/* --- FOOTER SECTION --- */}
+            <footer className="w-full bg-blue-900 text-white pt-16 pb-8">
+              <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
+                <div className="flex flex-col items-center md:items-start">
+                  <img className="h-20 object-contain drop-shadow-md mb-4" src={LogoTransparente} alt="Logo AdmiGas" />
+                  <p className="text-blue-200 text-sm text-center md:text-left max-w-xs leading-relaxed">
+                    Soluciones tecnológicas de vanguardia para el control y administración integral de Gas LP.
+                  </p>
+                </div>
+      
+                <div className="flex flex-col items-center md:items-start">
+                  <h4 className="text-lg font-bold mb-5 text-sky-400 uppercase tracking-wider">Contacto</h4>
+                  <div className="space-y-4 text-blue-100 text-sm">
+                    <p className="flex items-center gap-3 hover:text-white transition-colors">
+                      <Icon icon="mdi:web" width="22" className="text-sky-400" /> <a href="https://technoart.com.mx" target="_blank" rel="noopener noreferrer">technoart.com.mx</a>
+                    </p>
+                    <p className="flex items-center gap-3 hover:text-white transition-colors">
+                      <Icon icon="mdi:whatsapp" width="22" className="text-sky-400" /> <a href="https://wa.me/5215521758607" target="_blank" rel="noopener noreferrer">5521758607</a>
+                    </p>
+                    <p className="flex items-center gap-3 hover:text-white transition-colors break-all">
+                      <Icon icon="mdi:email-outline" width="22" className="text-sky-400" /> <a href="mailto:contacto@technoart.com.mx">contacto@technoart.com.mx</a>
+                    </p>
+                  </div>
+                </div>
+      
+                <div className="flex flex-col items-center md:items-start">
+                  <h4 className="text-lg font-bold mb-5 text-sky-400 uppercase tracking-wider">Síguenos</h4>
+                  <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                    <a href="https://www.facebook.com/profile.php?id=61580540152316" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-sky-500 hover:scale-110 transition-all text-white"><Icon icon="mdi:facebook" width="22" /></a>
+                    <a href="https://www.instagram.com/technoart.studio/" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-pink-500 hover:scale-110 transition-all text-white"><Icon icon="mdi:instagram" width="22" /></a>
+                    <a href="https://x.com/TechnoArt22" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-sky-400 hover:scale-110 transition-all text-white"><Icon icon="mdi:twitter" width="22" /></a>
+                    <a href="https://www.tiktok.com/@technoart22?lang=es" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-black hover:scale-110 transition-all text-white"><Icon icon="ic:baseline-tiktok" width="22" /></a>
+                    <a href="https://www.threads.com/@technoart.studio?hl=es-la" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-gray-800 hover:scale-110 transition-all text-white"><Icon icon="simple-icons:threads" width="22" /></a>
+                    <a href="https://www.linkedin.com/company/112591192/admin/dashboard/" target="_blank" rel="noopener noreferrer" className="bg-blue-800 p-3 rounded-full hover:bg-blue-600 hover:scale-110 transition-all text-white"><Icon icon="mdi:linkedin" width="22" /></a>
+                  </div>
+                </div>
+              </div>
+      
+              <div className="border-t border-blue-800 mt-12 pt-8 text-center text-blue-300 text-xs px-6">
+                &copy; {new Date().getFullYear()} TechnoArt Studio. Todos los derechos reservados.
+              </div>
+            </footer>
     </main>
   );
 };
