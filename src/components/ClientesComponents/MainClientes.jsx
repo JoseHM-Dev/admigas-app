@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import ModalContrato from "../ui/Modales/ModalContrato";
 import ModalNuevoCliente from "../ui/Modales/ModalNuevoCliente";
 import ModalReporteCliente from "../ui/Modales/ModalReporteCliente";
+import ModalMapaClientes from "../ui/Modales/ModalMapaClientes";
 import Swal from 'sweetalert2';
 
 export const MainClientes = () => {
@@ -34,6 +35,7 @@ export const MainClientes = () => {
   // Reporte
   const [isReporteModalOpen, setIsReporteModalOpen] = useState(false);
   const [clienteParaReporte, setClienteParaReporte] = useState(null);
+  const [isMapaModalOpen, setIsMapaModalOpen] = useState(false);
 
   // --- INTERSECTION OBSERVER PARA BOTÓN FLOTANTE ---
   const [isControlBarVisible, setIsControlBarVisible] = useState(true);
@@ -266,10 +268,10 @@ export const MainClientes = () => {
 
   const getSoftColor = (id) => {
     const colors = [
-      "bg-sky-100 text-sky-600 border-sky-200",
-      "bg-emerald-100 text-emerald-600 border-emerald-200",
-      "bg-amber-100 text-amber-600 border-amber-200",
-      "bg-indigo-100 text-indigo-600 border-indigo-200",
+      "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800",
+      "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+      "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
     ];
     return colors[id % colors.length];
   };
@@ -280,12 +282,12 @@ export const MainClientes = () => {
     return (
       <div
         key={cliente.id_casa}
-        className={`bg-white rounded-2xl shadow-sm hover:shadow-md border border-slate-200 transition-all duration-300 flex flex-col overflow-hidden group relative ${
+        className={`bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-700 transition-all duration-300 flex flex-col overflow-hidden group relative ${
           isCarousel ? "shrink-0 snap-center w-[85vw] sm:w-[320px]" : "w-full"
         }`}
       >
         {/* Banda superior sutil indicadora */}
-        <div className={`h-1.5 w-full ${isInactiveView ? 'bg-rose-400' : 'bg-sky-400'}`}></div>
+        <div className={`h-1.5 w-full ${isInactiveView ? 'bg-rose-400 dark:bg-rose-500' : 'bg-sky-400 dark:bg-sky-500'}`}></div>
   
         <div className="p-5 flex-1 flex flex-col">
           {/* Header Tarjeta */}
@@ -295,17 +297,17 @@ export const MainClientes = () => {
                 {getInitials(cliente.nombre_cliente, cliente.apellido_cliente)}
               </div>
               <div>
-                <h3 className="text-[17px] font-black text-slate-800 leading-tight group-hover:text-sky-600 transition-colors">
+                <h3 className="text-[17px] font-black text-slate-800 dark:text-slate-100 leading-tight group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                   {cliente.nombre_cliente} {cliente.apellido_cliente}
                 </h3>
-                <span className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                <span className="text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">
                   ID: {cliente.id_casa}
                 </span>
               </div>
             </div>
             <button
               onClick={() => handleVerReporte(cliente)}
-              className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors"
+              className="p-2 text-slate-400 dark:text-slate-400 hover:text-blue-900 dark:hover:text-sky-400 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-xl transition-colors"
               title="Ver Historial"
             >
               <Icon icon="mdi:chart-box-outline" width="24" />
@@ -314,25 +316,25 @@ export const MainClientes = () => {
   
           {/* Info Body */}
           <div className="space-y-2.5 mb-5">
-            <div className="flex items-start gap-2.5 text-[13px] text-slate-600 bg-slate-50 border border-slate-100 p-2.5 rounded-xl font-medium">
+            <div className="flex items-start gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-2.5 rounded-xl font-medium">
               <Icon icon="mdi:map-marker" className="text-sky-500 mt-0.5 shrink-0" width="18" />
               <span className="leading-tight">
                 {cliente.calle} #{cliente.numero}
                 <br />
-                <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                <span className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-wider">
                   {cliente.colonia}
                 </span>
               </span>
             </div>
             
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 px-1">
+            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 px-1">
               <Icon icon="mdi:phone" className="text-emerald-500 shrink-0" width="18" />
               <span className="font-bold tracking-wide">{cliente.telefono}</span>
             </div>
   
             {/* Etiqueta exclusiva de Inactivos para saber hace cuánto cargaron */}
             {isInactiveView && lastCargas[cliente.id_casa] && (
-              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg">
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800 p-2 rounded-lg">
                 <Icon icon="mdi:clock-alert-outline" width="16" />
                 Última carga: {new Date(lastCargas[cliente.id_casa]).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
               </div>
@@ -340,12 +342,12 @@ export const MainClientes = () => {
           </div>
   
           {/* Footer Actions */}
-          <div className="mt-auto pt-4 border-t border-slate-100 flex gap-2 flex-wrap">
+          <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 flex-wrap">
             {/* Si estamos en vista de inactivos mostramos botón de descartar, sino botón de editar */}
             {isInactiveView ? (
               <button
                 onClick={() => hideInactive(cliente.id_casa)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-slate-500 hover:text-amber-700 hover:bg-amber-50 transition-colors border border-slate-200 shadow-sm"
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors border border-slate-200 dark:border-slate-600 shadow-sm"
                 title="No mostrar más en esta lista"
               >
                 <Icon icon="mdi:eye-off-outline" width="18" /> Descartar
@@ -353,7 +355,7 @@ export const MainClientes = () => {
             ) : (
               <button
                 onClick={() => handleModify(cliente.id_casa)}
-                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-slate-600 hover:text-sky-600 hover:bg-sky-50 hover:border-sky-200 transition-colors bg-white border border-slate-200 shadow-sm"
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 hover:border-sky-200 dark:hover:border-slate-600 transition-colors bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 shadow-sm"
               >
                 <Icon icon="mdi:pencil-outline" width="16" /> Editar
               </button>
@@ -361,7 +363,7 @@ export const MainClientes = () => {
   
             <button
               onClick={() => handleDelete(cliente.id_casa, `${cliente.nombre_cliente} ${cliente.apellido_cliente}`)}
-              className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-200"
+              className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors border border-transparent hover:border-rose-200 dark:hover:border-rose-800/50"
             >
               <Icon icon="mdi:trash-can-outline" width="16" /> Eliminar
             </button>
@@ -372,7 +374,7 @@ export const MainClientes = () => {
                 href={`https://www.google.com/maps?q=${cliente.latitud},${cliente.longitud}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-none flex items-center justify-center p-2 text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-500 hover:text-white rounded-xl transition-all shadow-sm hover:shadow-md"
+                className="flex-none flex items-center justify-center p-2 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white rounded-xl transition-all shadow-sm hover:shadow-md"
                 title="Abrir en Maps"
               >
                 <Icon icon="mdi:google-maps" width="20" />
@@ -385,7 +387,7 @@ export const MainClientes = () => {
   };
 
   return (
-    <main className="bg-slate-50 min-h-screen pb-20 font-sans">
+    <main className="bg-slate-50 dark:bg-slate-900 min-h-screen pb-20 font-sans transition-colors duration-300">
       {/* --- BOTÓN FLOTANTE DE BÚSQUEDA --- */}
       <button
         onClick={handleFabClick}
@@ -403,31 +405,40 @@ export const MainClientes = () => {
 
       <section className="m-auto max-w-7xl p-6">
         {/* --- BARRA DE CONTROL SUPERIOR --- */}
-        <div ref={controlBarRef} className="flex flex-col md:flex-row items-center justify-between gap-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-6 relative z-20">
-          {/* Buscador */}
-          <div className="relative w-full md:w-96 group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon
-                icon="mdi:search"
-                className="text-slate-400 group-focus-within:text-sky-500 transition-colors"
-                width="22"
+        <div ref={controlBarRef} className="flex flex-col md:flex-row items-center justify-between gap-5 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6 relative z-20 transition-colors duration-300">
+          {/* Buscador y Botón Mapa */}
+          <div className="flex w-full md:w-auto gap-3 items-center">
+            <div className="relative w-full md:w-96 group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Icon
+                  icon="mdi:search"
+                  className="text-slate-400 dark:text-slate-500 group-focus-within:text-sky-500 dark:group-focus-within:text-sky-400 transition-colors"
+                  width="22"
+                />
+              </div>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Buscar por nombre, calle o colonia..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="block w-full pl-10 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl leading-5 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 font-medium"
               />
             </div>
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Buscar por nombre, calle o colonia..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="block w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl leading-5 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition-all duration-200 font-medium"
-            />
+            <button
+              onClick={() => setIsMapaModalOpen(true)}
+              className="flex-none p-3.5 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800/50 rounded-xl hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors shadow-sm"
+              title="Ver mapa de clientes"
+            >
+              <Icon icon="mdi:map-marker-radius" width="24" />
+            </button>
           </div>
 
           {/* Botones de Acción */}
           <div className="flex gap-4 w-full md:w-auto">
             <Link
               to="/dashboard"
-              className="flex-1 md:flex-none justify-center px-5 py-3 border border-slate-200 text-slate-600 bg-white rounded-xl hover:bg-slate-50 hover:text-blue-900 shadow-sm font-bold transition-all flex items-center gap-2"
+              className="flex-1 md:flex-none justify-center px-5 py-3 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-900 dark:hover:text-sky-400 shadow-sm font-bold transition-all flex items-center gap-2"
             >
               <Icon icon="line-md:arrow-left" width="20" />{" "}
               <span className="hidden sm:inline">Dashboard</span>
@@ -442,14 +453,14 @@ export const MainClientes = () => {
         </div>
 
         {/* --- PESTAÑAS Y CONTROLES DE VISTA --- */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-200 mb-8 pb-4 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-200 dark:border-slate-700 mb-8 pb-4 gap-4 transition-colors duration-300">
           <div className="flex flex-wrap gap-3 w-full sm:w-auto">
             <button
               onClick={() => setActiveTab("directorio")}
               className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all border grow sm:grow-0 ${
                 activeTab === "directorio"
-                  ? "bg-blue-900 text-white border-blue-900 shadow-md"
-                  : "bg-white text-slate-500 border-slate-200 hover:text-sky-600 hover:bg-sky-50"
+                  ? "bg-blue-900 dark:bg-sky-600 text-white border-blue-900 dark:border-sky-600 shadow-md"
+                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700"
               }`}
             >
               <Icon icon="mdi:folder-account-outline" width="20" /> Directorio
@@ -458,13 +469,13 @@ export const MainClientes = () => {
               onClick={() => setActiveTab("inactivos")}
               className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all border grow sm:grow-0 ${
                 activeTab === "inactivos"
-                  ? "bg-rose-500 text-white border-rose-500 shadow-md"
-                  : "bg-white text-slate-500 border-slate-200 hover:text-rose-600 hover:bg-rose-50"
+                  ? "bg-rose-500 dark:bg-rose-600 text-white border-rose-500 dark:border-rose-600 shadow-md"
+                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700"
               }`}
             >
               <Icon icon="mdi:account-clock-outline" width="20" /> Inactivos
               {inactivos.length > 0 && (
-                <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] ${activeTab === "inactivos" ? "bg-white text-rose-600" : "bg-rose-100 text-rose-600"}`}>
+                <span className={`ml-1 px-2 py-0.5 rounded-full text-[10px] ${activeTab === "inactivos" ? "bg-white text-rose-600 dark:bg-white/20 dark:text-white" : "bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300"}`}>
                   {inactivos.length}
                 </span>
               )}
@@ -472,11 +483,11 @@ export const MainClientes = () => {
           </div>
 
           {/* Botones de Vista (Grid / Carrusel) */}
-          <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden shrink-0 w-full sm:w-auto justify-center">
-            <button onClick={() => setViewMode("grid")} className={`flex-1 sm:flex-none px-6 sm:px-4 py-2 transition-colors ${viewMode === "grid" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+          <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 w-full sm:w-auto justify-center transition-colors duration-300">
+            <button onClick={() => setViewMode("grid")} className={`flex-1 sm:flex-none px-6 sm:px-4 py-2 transition-colors ${viewMode === "grid" ? "bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
               <Icon icon="mdi:view-grid" width="20" className="mx-auto" />
             </button>
-            <button onClick={() => setViewMode("carousel")} className={`flex-1 sm:flex-none px-6 sm:px-4 py-2 transition-colors ${viewMode === "carousel" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+            <button onClick={() => setViewMode("carousel")} className={`flex-1 sm:flex-none px-6 sm:px-4 py-2 transition-colors ${viewMode === "carousel" ? "bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
               <Icon icon="mdi:view-carousel" width="20" className="mx-auto" />
             </button>
           </div>
@@ -508,33 +519,33 @@ export const MainClientes = () => {
                 return (
                 <div 
                   key={colonia} 
-                  className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300 ${
+                  className={`bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden transition-all duration-300 ${
                     isCarousel ? "shrink-0 snap-center w-[90vw] sm:w-[400px]" : "w-full"
                   }`}
                 >
                   <div 
-                    className="flex justify-between items-center p-5 cursor-pointer hover:bg-slate-50 transition-colors"
+                    className="flex justify-between items-center p-5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                     onClick={() => toggleColonia(colonia)}
                   >
                     <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="p-2 sm:p-2.5 bg-blue-50 border border-blue-100 rounded-xl text-blue-900 shrink-0">
+                      <div className="p-2 sm:p-2.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/50 rounded-xl text-blue-900 dark:text-blue-400 shrink-0">
                         <Icon icon="mdi:city-variant-outline" width="24" />
                       </div>
                       <div>
-                        <h3 className="text-lg sm:text-xl font-extrabold text-slate-800 tracking-tight leading-tight">
+                        <h3 className="text-lg sm:text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
                           {colonia} 
                         </h3>
-                        <p className="text-xs sm:text-sm font-bold text-slate-400 mt-0.5">
+                        <p className="text-xs sm:text-sm font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                           {clientesCol.length} {clientesCol.length === 1 ? 'cliente' : 'clientes'}
                         </p>
                       </div>
                     </div>
-                    <button className={`p-2 shrink-0 rounded-full transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-slate-100 text-slate-600' : 'bg-sky-50 text-sky-600 hover:bg-sky-100'}`}>
+                    <button className={`p-2 shrink-0 rounded-full transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' : 'bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50'}`}>
                       <Icon icon="mdi:chevron-down" width="24" />
                     </button>
                   </div>
                   {isExpanded && (
-                    <div className="p-4 sm:p-6 pt-2 border-t border-slate-100 bg-slate-50/50">
+                    <div className="p-4 sm:p-6 pt-2 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
                       <div className="flex flex-col gap-4">
                         {clientesCol.map((c) => renderClientCard(c, false, true))}
                       </div>
@@ -544,14 +555,14 @@ export const MainClientes = () => {
               )})}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
-              <div className="p-6 bg-slate-50 rounded-full mb-4">
-                <Icon icon="mdi:account-off-outline" className="text-slate-300 w-16 h-16" />
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm transition-colors duration-300">
+              <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-full mb-4">
+                <Icon icon="mdi:account-off-outline" className="text-slate-300 dark:text-slate-600 w-16 h-16" />
               </div>
-              <h3 className="text-xl font-extrabold text-slate-600 mb-2">
+              <h3 className="text-xl font-extrabold text-slate-600 dark:text-slate-300 mb-2">
                 No se encontraron clientes
               </h3>
-              <p className="text-slate-500 font-medium text-center mb-6">
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-center mb-6">
                 Intenta buscar con otro nombre o agrega un cliente nuevo.
               </p>
             </div>
@@ -560,11 +571,11 @@ export const MainClientes = () => {
           /* TAB: INACTIVOS */
           inactivos.length > 0 ? (
             <div>
-              <div className="mb-8 p-5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-4">
-                <Icon icon="mdi:alert-circle-outline" width="32" className="text-rose-500 shrink-0" />
+              <div className="mb-8 p-5 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/50 rounded-2xl flex items-start gap-4 transition-colors duration-300">
+                <Icon icon="mdi:alert-circle-outline" width="32" className="text-rose-500 dark:text-rose-400 shrink-0" />
                 <div>
-                  <h4 className="text-rose-800 font-black text-lg leading-tight">Clientes Inactivos</h4>
-                  <p className="text-rose-600 text-sm font-medium mt-1">Estos clientes llevan más de 30 días sin un registro de venta. Puedes eliminarlos, contactarlos o usar el botón "Descartar" si ya no quieres verlos en esta lista.</p>
+                  <h4 className="text-rose-800 dark:text-rose-300 font-black text-lg leading-tight">Clientes Inactivos</h4>
+                  <p className="text-rose-600 dark:text-rose-400 text-sm font-medium mt-1">Estos clientes llevan más de 30 días sin un registro de venta. Puedes eliminarlos, contactarlos o usar el botón "Descartar" si ya no quieres verlos en esta lista.</p>
                 </div>
               </div>
               {viewMode === "grid" ? (
@@ -578,14 +589,14 @@ export const MainClientes = () => {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
-              <div className="p-6 bg-emerald-50 rounded-full mb-4">
-                <Icon icon="mdi:check-decagram-outline" className="text-emerald-400 w-16 h-16" />
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm transition-colors duration-300">
+              <div className="p-6 bg-emerald-50 dark:bg-emerald-900/30 rounded-full mb-4">
+                <Icon icon="mdi:check-decagram-outline" className="text-emerald-400 dark:text-emerald-500 w-16 h-16" />
               </div>
-              <h3 className="text-xl font-extrabold text-slate-600 mb-2">
+              <h3 className="text-xl font-extrabold text-slate-600 dark:text-slate-300 mb-2">
                 ¡Todo al día!
               </h3>
-              <p className="text-slate-500 font-medium text-center">
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-center">
                 No tienes clientes inactivos o perdidos por el momento.
               </p>
             </div>
@@ -609,6 +620,11 @@ export const MainClientes = () => {
         isOpen={isReporteModalOpen}
         onClose={() => setIsReporteModalOpen(false)}
         cliente={clienteParaReporte}
+      />
+      <ModalMapaClientes
+        isOpen={isMapaModalOpen}
+        onClose={() => setIsMapaModalOpen(false)}
+        clientes={clientes}
       />
     </main>
   );

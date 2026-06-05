@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 
 export const MainHome = () => {
   return (
-    <main className="flex flex-col items-center bg-slate-50 min-h-screen font-sans w-full">
+    <main className="flex flex-col items-center bg-slate-50 dark:bg-slate-900 min-h-screen font-sans w-full transition-colors duration-300">
       
       {/* --- HERO SECTION --- */}
       <section className="flex flex-col items-center w-full max-w-6xl px-6 py-16 md:py-24">
@@ -16,11 +16,11 @@ export const MainHome = () => {
           />
         </div>
 
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-center text-blue-900 leading-tight max-w-4xl tracking-tight">
-          Tu socio confiable en la <span className="text-sky-500">administración</span> de Gas LP
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-center text-blue-900 dark:text-white leading-tight max-w-4xl tracking-tight">
+          Tu socio confiable en la <span className="text-sky-500 dark:text-sky-400">administración</span> de Gas LP
         </h1>
 
-        <p className="mt-6 text-lg md:text-xl text-slate-500 text-center max-w-2xl font-medium">
+        <p className="mt-6 text-lg md:text-xl text-slate-500 dark:text-slate-300 text-center max-w-2xl font-medium">
           Herramientas digitales diseñadas para optimizar el control, distribución y cobranza de tu empresa gasera.
         </p>
 
@@ -34,7 +34,7 @@ export const MainHome = () => {
             <Icon icon="mdi:whatsapp" width="24" /> Contactar
           </a>
           <Link to="/Login" className="w-full sm:w-auto">
-            <button className="flex items-center justify-center gap-2 bg-white border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-bold text-lg py-3 px-8 rounded-xl shadow-sm transition-all duration-300 transform hover:-translate-y-1 w-full">
+            <button className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border-2 border-blue-900 dark:border-sky-500 text-blue-900 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-slate-700 font-bold text-lg py-3 px-8 rounded-xl shadow-sm transition-all duration-300 transform hover:-translate-y-1 w-full">
               <Icon icon="mdi:login-variant" width="24" /> Ya soy parte
             </button>
           </Link>
@@ -44,42 +44,42 @@ export const MainHome = () => {
       {/* --- SECCIÓN SERVICIOS --- */}
       <section className="w-full max-w-7xl px-6 py-16">
         <div className="text-center mb-14">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900 dark:text-sky-400">
             Nuestros Servicios
           </h2>
-          <p className="text-slate-500 mt-3 text-lg font-medium">Soluciones integrales para digitalizar tu negocio</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-3 text-lg font-medium">Soluciones integrales para digitalizar tu negocio</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Tarjeta 1 */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
-            <div className="bg-sky-50 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
-              <Icon icon="mdi:account-group-outline" className="text-sky-500 w-12 h-12" />
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-sky-50 dark:bg-sky-900/30 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Icon icon="mdi:account-group-outline" className="text-sky-500 dark:text-sky-400 w-12 h-12" />
             </div>
-            <h3 className="text-xl font-bold text-slate-700 mb-3">Módulo de Gestión de Clientes (CRM)</h3>
-            <p className="text-slate-500 font-medium leading-relaxed">
+            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-100 mb-3">Módulo de Gestión de Clientes (CRM)</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               Crear un expediente digital completo para cada usuario y administrar sus necesidades ágilmente.
             </p>
           </div>
 
           {/* Tarjeta 2 */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
-            <div className="bg-sky-50 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
-              <Icon icon="mdi:credit-card-outline" className="text-sky-500 w-12 h-12" />
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-sky-50 dark:bg-sky-900/30 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Icon icon="mdi:credit-card-outline" className="text-sky-500 dark:text-sky-400 w-12 h-12" />
             </div>
-            <h3 className="text-xl font-bold text-slate-700 mb-3">Administración de Crédito y Cobranza</h3>
-            <p className="text-slate-500 font-medium leading-relaxed">
+            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-100 mb-3">Administración de Crédito y Cobranza</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               Control financiero y análisis de riesgo de crédito detallado para optimizar el flujo de tu empresa.
             </p>
           </div>
 
           {/* Tarjeta 3 */}
-          <div className="bg-white rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
-            <div className="bg-sky-50 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
-              <Icon icon="mdi:receipt-text-outline" className="text-sky-500 w-12 h-12" />
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-700 p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300">
+            <div className="bg-sky-50 dark:bg-sky-900/30 p-5 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300">
+              <Icon icon="mdi:receipt-text-outline" className="text-sky-500 dark:text-sky-400 w-12 h-12" />
             </div>
-            <h3 className="text-xl font-bold text-slate-700 mb-3">Generador de Recibos y Facturas</h3>
-            <p className="text-slate-500 font-medium leading-relaxed">
+            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-100 mb-3">Generador de Recibos y Facturas</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               Creación de tickets detallados y facturación con base en el consumo o servicio prestado.
             </p>
           </div>
@@ -87,41 +87,41 @@ export const MainHome = () => {
       </section>
 
       {/* --- SECCIÓN COMPROMISO --- */}
-      <section className="w-full bg-white border-t border-slate-200 mt-8 py-16">
+      <section className="w-full bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 mt-8 py-16 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-blue-900 dark:text-sky-400">
               Nuestro Compromiso
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div className="flex flex-col items-center text-center">
-              <div className="bg-blue-50 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100">
-                <Icon icon="mdi:shield-check-outline" className="text-blue-900 w-12 h-12" />
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100 dark:border-blue-800/50">
+                <Icon icon="mdi:shield-check-outline" className="text-blue-900 dark:text-sky-400 w-12 h-12" />
               </div>
-              <h3 className="text-xl font-bold text-slate-700 mb-3">Seguridad y Confianza</h3>
-              <p className="text-slate-500 font-medium">
+              <h3 className="text-xl font-bold text-slate-700 dark:text-slate-100 mb-3">Seguridad y Confianza</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">
                 Implementamos altos estándares de seguridad con la finalidad de que tus datos se encuentren en resguardo seguro.
               </p>
             </div>
 
             <div className="flex flex-col items-center text-center">
-              <div className="bg-blue-50 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100">
-                <Icon icon="mdi:chart-timeline-variant-shimmer" className="text-blue-900 w-12 h-12" />
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100 dark:border-blue-800/50">
+                <Icon icon="mdi:chart-timeline-variant-shimmer" className="text-blue-900 dark:text-sky-400 w-12 h-12" />
               </div>
-              <h3 className="text-xl font-bold text-slate-700 mb-3">Eficiencia Operativa</h3>
-              <p className="text-slate-500 font-medium">
+              <h3 className="text-xl font-bold text-slate-700 dark:text-slate-100 mb-3">Eficiencia Operativa</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">
                 Garantizamos una eficiencia con los más altos estándares operativos y automatización de procesos.
               </p>
             </div>
 
             <div className="flex flex-col items-center text-center">
-              <div className="bg-blue-50 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100">
-                <Icon icon="mdi:account-wrench-outline" className="text-blue-900 w-12 h-12" />
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-5 rounded-2xl mb-5 shadow-sm border border-blue-100 dark:border-blue-800/50">
+                <Icon icon="mdi:account-wrench-outline" className="text-blue-900 dark:text-sky-400 w-12 h-12" />
               </div>
-              <h3 className="text-xl font-bold text-slate-700 mb-3">Servicio Personalizado</h3>
-              <p className="text-slate-500 font-medium">
+              <h3 className="text-xl font-bold text-slate-700 dark:text-slate-100 mb-3">Servicio Personalizado</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">
                 Servicio técnico las 24 hrs, con técnicos capacitados para resolver y atender todo tipo de eventualidad.
               </p>
             </div>
@@ -130,7 +130,7 @@ export const MainHome = () => {
       </section>
 
       {/* --- FOOTER SECTION --- */}
-      <footer className="w-full bg-blue-900 text-white pt-16 pb-8">
+      <footer className="w-full bg-blue-900 dark:bg-slate-950 text-white pt-16 pb-8 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
           <div className="flex flex-col items-center md:items-start">
             <img className="h-20 object-contain drop-shadow-md mb-4" src={LogoTransparente} alt="Logo AdmiGas" />

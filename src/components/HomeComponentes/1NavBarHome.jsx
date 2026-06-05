@@ -7,7 +7,7 @@ import { Icon } from "@iconify/react";
 export const NavBarHome = () => {
   const navigate = useNavigate();
   return (
-    <header className="w-full bg-white shadow-sm sticky top-0 z-50">
+    <header className="w-full bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-800/50 border-b border-transparent dark:border-slate-800 sticky top-0 z-50 transition-colors duration-300 pt-[env(safe-area-inset-top)]">
       <section className="font-medium flex flex-col w-full max-w-[1400px] justify-between m-auto items-center gap-3 p-4 transition-all duration-300 sm:flex-row sm:px-8 lg:px-16">
         
         <div
@@ -23,7 +23,7 @@ export const NavBarHome = () => {
             href="http://wa.me/5215521758607"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-sky-500 font-bold transition-colors"
+            className="hidden lg:flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 font-bold transition-colors"
           >
             <Icon icon="mdi:whatsapp" width="22" />
             Soporte

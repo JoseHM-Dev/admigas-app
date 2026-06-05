@@ -57,7 +57,7 @@ export const NavBarUser = () => {
   ];
 
   return (
-    <header className={`w-full bg-white shadow-sm sticky z-50 transition-all duration-300 ${isVisible ? 'top-0' : '-top-24'}`}>
+    <header className={`w-full bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-800/50 border-b border-transparent dark:border-slate-800 sticky z-50 transition-all duration-300 pt-[env(safe-area-inset-top)] ${isVisible ? 'top-0' : '-top-24'}`}>
       <section className="font-medium flex w-full max-w-[1400px] justify-between m-auto items-center p-3 sm:px-8 lg:px-16">
         
         <div
@@ -73,7 +73,7 @@ export const NavBarUser = () => {
             href="https://wa.me/5215521758607"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-sky-500 font-bold transition-colors"
+            className="hidden lg:flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 font-bold transition-colors"
           >
             <Icon icon="mdi:whatsapp" width="22" /> Soporte
           </a>
@@ -82,7 +82,7 @@ export const NavBarUser = () => {
           <div className="relative" ref={serviciosRef}>
             <button
               onClick={() => setIsServiciosOpen(!isServiciosOpen)}
-              className="flex items-center gap-1 sm:gap-2 bg-white border-2 border-slate-200 text-slate-600 hover:text-blue-900 hover:border-blue-900 hover:bg-blue-50 font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded-lg shadow-sm hover:shadow-md transition-all"
+              className="flex items-center gap-1 sm:gap-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-900 dark:hover:text-sky-400 hover:border-blue-900 dark:hover:border-sky-400 hover:bg-blue-50 dark:hover:bg-slate-700 font-bold py-1.5 px-3 sm:py-2 sm:px-4 rounded-lg shadow-sm hover:shadow-md transition-all"
             >
               <Icon icon="mdi:apps" width="20" />
               <span className="hidden sm:inline">Servicios</span>
@@ -90,15 +90,15 @@ export const NavBarUser = () => {
             </button>
             
             {isServiciosOpen && (
-              <div className="origin-top-right absolute right-0 mt-2 w-48 sm:w-56 rounded-xl shadow-lg bg-white border border-slate-100 divide-y divide-slate-100 focus:outline-none z-50 overflow-hidden">
+              <div className="origin-top-right absolute right-0 mt-2 w-48 sm:w-56 rounded-xl shadow-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 focus:outline-none z-50 overflow-hidden">
                 <div className="py-2">
                   {menuServicios.map((s) => (
                     <button
                       key={s.name}
                       onClick={() => { navigate(s.path); setIsServiciosOpen(false); }}
-                      className="w-full text-left flex items-center gap-3 px-5 py-3 text-sm text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition-colors"
+                      className="w-full text-left flex items-center gap-3 px-5 py-3 text-sm text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-slate-700 hover:text-sky-600 dark:hover:text-sky-400 transition-colors"
                     >
-                      <Icon icon={s.icon} width="22" className="text-blue-900" />
+                      <Icon icon={s.icon} width="22" className="text-blue-900 dark:text-sky-400" />
                       <span className="font-bold">{s.name}</span>
                     </button>
                   ))}
@@ -126,14 +126,14 @@ export const NavBarUser = () => {
             </button>
 
             {isDropdownOpen && (
-              <div className="origin-top-right absolute right-0 mt-2 w-40 sm:w-48 rounded-xl shadow-lg bg-white border border-slate-100 divide-y divide-slate-100 focus:outline-none z-50 overflow-hidden">
+              <div className="origin-top-right absolute right-0 mt-2 w-40 sm:w-48 rounded-xl shadow-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 focus:outline-none z-50 overflow-hidden">
                 <div className="py-1">
                   <button
                     onClick={() => {
                       navigate('/ajustes');
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition-colors font-semibold"
+                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-slate-600 dark:text-slate-300 hover:bg-sky-50 dark:hover:bg-slate-700 hover:text-sky-600 dark:hover:text-sky-400 transition-colors font-semibold"
                   >
                     <Icon icon="mdi:cog" width="20" /> Ajustes
                   </button>
@@ -142,7 +142,7 @@ export const NavBarUser = () => {
                       handleLogout();
                       setIsDropdownOpen(false);
                     }}
-                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-rose-600 hover:bg-rose-50 transition-colors font-semibold"
+                    className="w-full text-left flex items-center gap-3 px-4 py-3 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors font-semibold"
                   >
                     <Icon icon="mdi:logout" width="20" /> Cerrar Sesión
                   </button>

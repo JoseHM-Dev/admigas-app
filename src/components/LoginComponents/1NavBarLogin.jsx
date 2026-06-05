@@ -6,7 +6,7 @@ import { Icon } from "@iconify/react";
 export const NavBarLogin = () => {
   const navigate = useNavigate();
   return (
-    <header className="w-full bg-white shadow-sm sticky top-0 z-50">
+    <header className="w-full bg-white dark:bg-slate-900 shadow-sm dark:shadow-slate-800/50 border-b border-transparent dark:border-slate-800 sticky top-0 z-50 transition-colors duration-300 pt-[env(safe-area-inset-top)]">
       <section className="font-medium flex flex-col w-full max-w-[1400px] justify-between m-auto items-center gap-3 p-4 transition-all duration-300 sm:flex-row sm:px-8 lg:px-16">
         
         {/* LOGO */}
@@ -24,13 +24,13 @@ export const NavBarLogin = () => {
             href="https://wa.me/5215521758607"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden lg:flex items-center gap-2 text-slate-600 hover:text-sky-500 font-bold transition-colors"
+            className="hidden lg:flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 font-bold transition-colors"
           >
             <Icon icon="mdi:whatsapp" width="22" />
             Soporte
           </a>
           <Link to="/Home" className="w-full sm:w-auto">
-            <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border-2 border-slate-200 text-slate-600 hover:text-blue-900 hover:border-blue-900 hover:bg-blue-50 font-bold py-2.5 px-6 rounded-lg shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5">
+            <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-900 dark:hover:text-sky-400 hover:border-blue-900 dark:hover:border-sky-400 hover:bg-blue-50 dark:hover:bg-slate-700 font-bold py-2.5 px-6 rounded-lg shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5">
               <Icon icon="mdi:arrow-left" width="20" /> 
               <span className="hidden sm:inline">Volver al Inicio</span>
               <span className="sm:hidden">Inicio</span>

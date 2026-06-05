@@ -18,7 +18,7 @@
     "@capacitor/core": "^7.4.4",
     "@capacitor/ios": "^7.4.4",
     "@capacitor/splash-screen": "^7.0.3",
-    "@capacitor/status-bar": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.6",
     "@hugotomazi/capacitor-navigation-bar": "^4.0.1",
     "@iconify/react": "^6.0.2",
     "@react-pdf/renderer": "^4.3.1",

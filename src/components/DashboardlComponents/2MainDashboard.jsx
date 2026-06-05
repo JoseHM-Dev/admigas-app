@@ -12,6 +12,9 @@ import ModalPersonal from "../ui/Modales/ModalPersonal";
 import ModalUnidad from "../ui/Modales/ModalUnidad";
 import ModalBanco from "../ui/Modales/ModalBanco";
 import ModalTarifa from "../ui/Modales/ModalTarifa";
+import ModalNuevoCliente from "../ui/Modales/ModalNuevoCliente";
+import ModalReporteCliente from "../ui/Modales/ModalReporteCliente";
+import BuscadorFlotante from "../ui/BuscadorFlotante";
 
 export const MainDashboard = () => {
   const {
@@ -22,6 +25,8 @@ export const MainDashboard = () => {
     datosBancarios,
     tarifa,
     fetchUserData,
+    isDarkMode,
+    toggleDarkMode,
   } = useAuth();
 
   const [isModalPersonalOpen, setIsModalPersonalOpen] = useState(false);
@@ -49,6 +54,12 @@ export const MainDashboard = () => {
   const [isModalAgendaOpen, setIsModalAgendaOpen] = useState(false);
   const [selectedAgendaItem, setSelectedAgendaItem] = useState(null);
   const [registrador, setRegistrador] = useState(null);
+  
+  // --- ESTADOS PARA BUSCADOR FLOTANTE GLOBAL ---
+  const [isNuevoClienteModalOpen, setIsNuevoClienteModalOpen] = useState(false);
+  const [clienteSeleccionadoApp, setClienteSeleccionadoApp] = useState(null);
+  const [isReporteModalOpen, setIsReporteModalOpen] = useState(false);
+  const [clienteParaReporte, setClienteParaReporte] = useState(null);
 
   // --- INTERSECTION OBSERVER PARA BOTÓN FLOTANTE ---
   const [isConsoleVisible, setIsConsoleVisible] = useState(true);
@@ -401,6 +412,16 @@ export const MainDashboard = () => {
     refreshData();
   };
 
+  // --- HANDLERS PARA EL BUSCADOR FLOTANTE GLOBAL ---
+  const handleEditClientFromSearch = (client) => {
+    setClienteSeleccionadoApp(client);
+    setIsNuevoClienteModalOpen(true);
+  };
+  const handleReportClientFromSearch = (client) => {
+    setClienteParaReporte(client);
+    setIsReporteModalOpen(true);
+  };
+
   const formatMoney = (amount) =>
     Number(amount).toLocaleString("es-MX", {
       style: "currency",
@@ -425,17 +446,17 @@ export const MainDashboard = () => {
     return listaDiaria.map((item, index) => (
       <div
         key={item.id_carga || index}
-        className="bg-white rounded-2xl shadow-sm hover:shadow-md border border-slate-200 transition-all duration-300 overflow-hidden group flex flex-col justify-between shrink-0 snap-center min-w-[85vw] sm:min-w-[320px] w-full"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-md border border-slate-200 dark:border-slate-700 transition-all duration-300 overflow-hidden group flex flex-col justify-between shrink-0 snap-center min-w-[85vw] sm:min-w-[320px] w-full"
       >
-        <div className="bg-slate-50/50 p-4 border-b border-slate-100 flex items-start gap-3">
-          <div className="mt-1 bg-white p-2 rounded-full shadow-sm border border-slate-100 text-sky-500">
+        <div className="bg-slate-50/50 dark:bg-slate-800/50 p-4 border-b border-slate-100 dark:border-slate-700 flex items-start gap-3">
+          <div className="mt-1 bg-white dark:bg-slate-700 p-2 rounded-full shadow-sm border border-slate-100 dark:border-slate-600 text-sky-500 dark:text-sky-400">
             <Icon icon="mdi:map-marker-radius" width="20" />
           </div>
           <div>
-            <p className="font-extrabold text-slate-700 text-[15px] leading-tight mb-0.5">
+            <p className="font-extrabold text-slate-700 dark:text-slate-100 text-[15px] leading-tight mb-0.5">
               {item.calle} #{item.numero}
             </p>
-            <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider">
               {item.colonia}
             </p>
           </div>
@@ -444,25 +465,25 @@ export const MainDashboard = () => {
         <div className="p-5 flex-1">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest mb-1">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-extrabold tracking-widest mb-1">
                 Consumo
               </p>
-              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-lg">
+              <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200 font-bold text-lg">
                 <Icon icon="mdi:gas-station" className="text-sky-500" width="20" />
                 <span>{item.consumo_litros} L</span>
               </div>
               {Number(item.ret) > 0 && (
-                <div className="flex items-center gap-1 text-rose-500 text-xs font-bold mt-1.5 bg-rose-50 px-2 py-0.5 rounded-md inline-flex">
+                <div className="flex items-center gap-1 text-rose-500 dark:text-rose-400 text-xs font-bold mt-1.5 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded-md inline-flex">
                   <Icon icon="mdi:gas-burner" width="14" />
                   <span>Ret: {item.ret} L</span>
                 </div>
               )}
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-slate-400 uppercase font-extrabold tracking-widest mb-1">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-extrabold tracking-widest mb-1">
                 Total
               </p>
-              <p className="text-3xl font-black text-slate-800 tracking-tight">
+              <p className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">
                 {formatMoney(item.monto_total)}
               </p>
             </div>
@@ -479,16 +500,16 @@ export const MainDashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 divide-x divide-slate-100 border-t border-slate-100 bg-white">
+        <div className="grid grid-cols-2 divide-x divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-b-2xl">
           <button
             onClick={() => handleModify(item.id_carga)}
-            className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+            className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 transition-colors"
           >
             <Icon icon="mdi:pencil-outline" width="18" /> Editar
           </button>
           <button
             onClick={() => handleDelete(item.id_carga)}
-            className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            className="py-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 transition-colors"
           >
             <Icon icon="mdi:trash-can-outline" width="18" /> Eliminar
           </button>
@@ -498,7 +519,7 @@ export const MainDashboard = () => {
   };
 
   return (
-    <main className="bg-slate-50 min-h-screen pb-10 font-sans">
+    <main className="bg-slate-50 dark:bg-slate-900 min-h-screen pb-10 font-sans transition-colors duration-300">
       {/* Botón Flotante Nueva Venta (Móvil siempre, Escritorio/Tablet al hacer scroll) */}
       {estadoDelDia === "INICIADO" && (
         <button
@@ -513,7 +534,7 @@ export const MainDashboard = () => {
 
       {/* --- SECCIÓN LISTA DIARIA --- */}
       <section className="m-auto max-w-6xl px-4 py-8">
-        <h2 className="font-extrabold text-center text-3xl text-blue-900 mb-8 tracking-tight">
+        <h2 className="font-extrabold text-center text-3xl text-blue-900 dark:text-sky-400 mb-8 tracking-tight transition-colors duration-300">
           Lista Diaria de Ventas
         </h2>
 
@@ -566,18 +587,27 @@ export const MainDashboard = () => {
           >
             <Icon icon="mdi:plus-circle-outline" width="20" /> Nueva Venta
           </button>
+
+          {/* --- BOTON TOGGLE TEMA OSCURO --- */}
+          <button
+            onClick={toggleDarkMode}
+            className="flex items-center gap-2 py-2.5 px-6 rounded-xl font-bold shadow-sm transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:shadow-md hover:-translate-y-0.5"
+          >
+            <Icon icon={isDarkMode ? "line-md:sunny-outline-to-moon-transition" : "line-md:moon-alt-to-sunny-outline-loop-transition"} width="20" />
+            {isDarkMode ? "Modo Claro" : "Modo Oscuro"}
+          </button>
         </div>
 
         {/* --- TARJETAS DE VENTA --- */}
         {listaDiaria.length > 0 ? (
           <>
             <div className="flex justify-between items-center mb-6">
-              <p className="text-slate-500 font-bold text-sm">Ventas hoy: <span className="text-blue-900 bg-blue-100 px-2 py-0.5 rounded-full">{listaDiaria.length}</span></p>
-              <div className="flex bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                <button onClick={() => setViewMode("grid")} className={`px-4 py-2 transition-colors ${viewMode === "grid" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+              <p className="text-slate-500 dark:text-slate-400 font-bold text-sm">Ventas hoy: <span className="text-blue-900 dark:text-sky-300 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded-full">{listaDiaria.length}</span></p>
+              <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <button onClick={() => setViewMode("grid")} className={`px-4 py-2 transition-colors ${viewMode === "grid" ? "bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
                   <Icon icon="mdi:view-grid" width="20" />
                 </button>
-                <button onClick={() => setViewMode("carousel")} className={`px-4 py-2 transition-colors ${viewMode === "carousel" ? "bg-sky-100 text-sky-600" : "text-slate-400 hover:bg-slate-50"}`}>
+                <button onClick={() => setViewMode("carousel")} className={`px-4 py-2 transition-colors ${viewMode === "carousel" ? "bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-400" : "text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}>
                   <Icon icon="mdi:view-carousel" width="20" />
                 </button>
               </div>
@@ -594,11 +624,11 @@ export const MainDashboard = () => {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-16 px-4 bg-white border border-dashed border-slate-300 rounded-2xl shadow-sm">
+          <div className="flex flex-col items-center justify-center py-16 px-4 bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl shadow-sm">
             {estadoDelDia === "CERRADO" ? (
               <>
-                <Icon icon="mdi:store-clock-outline" className="text-slate-200 w-20 h-20 mb-4" />
-                <p className="text-slate-500 font-medium text-lg text-center">
+                <Icon icon="mdi:store-clock-outline" className="text-slate-200 dark:text-slate-600 w-20 h-20 mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 font-medium text-lg text-center">
                   El turno está cerrado.
                 </p>
                 <button
@@ -610,13 +640,13 @@ export const MainDashboard = () => {
               </>
             ) : (
               <>
-                <Icon icon="mdi:clipboard-text-off-outline" className="text-slate-200 w-20 h-20 mb-4" />
-                <p className="text-slate-500 font-medium text-lg text-center">
+                <Icon icon="mdi:clipboard-text-off-outline" className="text-slate-200 dark:text-slate-600 w-20 h-20 mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 font-medium text-lg text-center">
                   No hay ventas registradas en este turno aún.
                 </p>
                 <button
                   onClick={handleOpenVentaModal}
-                  className="mt-4 bg-blue-900 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-800 shadow-md transition-all hover:-translate-y-0.5"
+                  className="mt-4 bg-blue-900 dark:bg-sky-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-800 dark:hover:bg-sky-500 shadow-md transition-all hover:-translate-y-0.5"
                 >
                   ¡Registra la primera venta!
                 </button>
@@ -854,6 +884,23 @@ export const MainDashboard = () => {
         isOpen={isModalTarifaOpen}
         onClose={() => setIsModalTarifaOpen(false)}
         onSave={handleTarifaGuardada}
+      />
+      
+      {/* MODALES DISPARADOS DESDE EL BUSCADOR FLOTANTE */}
+      <ModalNuevoCliente
+        isOpen={isNuevoClienteModalOpen}
+        onClose={() => setIsNuevoClienteModalOpen(false)}
+        cliente={clienteSeleccionadoApp}
+      />
+      <ModalReporteCliente
+        isOpen={isReporteModalOpen}
+        onClose={() => setIsReporteModalOpen(false)}
+        cliente={clienteParaReporte}
+      />
+
+      <BuscadorFlotante 
+        onEdit={handleEditClientFromSearch}
+        onReport={handleReportClientFromSearch}
       />
     </main>
   );

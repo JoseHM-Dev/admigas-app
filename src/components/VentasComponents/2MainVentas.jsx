@@ -241,65 +241,65 @@ export const MainVentas = () => {
   const renderEstadoBadge = () => {
     if (!turnoData) {
       return (
-        <span className="px-4 py-1.5 bg-slate-100 text-slate-500 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-slate-200">
+        <span className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-slate-200 dark:border-slate-700">
           <Icon icon="mdi:close-octagon-outline" width="16" /> Sin Turno
         </span>
       );
     }
     if (turnoData.porcentaje_final !== null) {
       return (
-        <span className="px-4 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-emerald-200">
+        <span className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-emerald-200 dark:border-emerald-800">
           <Icon icon="mdi:check-circle" width="16" /> Turno Finalizado
         </span>
       );
     }
     return (
-      <span className="px-4 py-1.5 bg-sky-100 text-sky-700 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-sky-200 animate-pulse">
+      <span className="px-4 py-1.5 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 text-xs font-extrabold uppercase tracking-wider rounded-full flex items-center gap-1.5 border border-sky-200 dark:border-sky-800 animate-pulse">
         <Icon icon="mdi:clock-outline" width="16" /> Turno Abierto
       </span>
     );
   };
 
   return (
-    <main className="bg-slate-50 pb-20 min-h-screen relative font-sans">
-      <div className="print:hidden">
+    <main className="bg-slate-50 dark:bg-slate-900 pb-20 min-h-screen relative font-sans transition-colors duration-300">
+      <div className="pt-6 print:hidden">
         <Titulo Texto="Historial y Reportes" />
       </div>
 
       <section className="m-auto max-w-6xl p-4 space-y-8">
         {/* FILTROS */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-5 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 print:hidden">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-5 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 print:hidden transition-colors duration-300">
           <div className="flex flex-col md:flex-row items-center gap-5 w-full md:w-auto">
-            <div className="flex items-center gap-3 w-full md:w-auto bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <div className="p-2 bg-sky-100 rounded-lg text-sky-600">
+            <div className="flex items-center gap-3 w-full md:w-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+              <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400">
                 <Icon icon="mdi:calendar-search" width="24" />
               </div>
               <div className="flex flex-col w-full">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Fecha de Consulta
                 </label>
                 <input
                   type="date"
                   value={fechaSeleccionada}
                   onChange={(e) => setFechaSeleccionada(e.target.value)}
-                  className="font-bold text-slate-700 bg-transparent outline-none cursor-pointer w-full"
+                  className="font-bold text-slate-700 dark:text-slate-200 bg-transparent outline-none cursor-pointer w-full"
                 />
               </div>
             </div>
 
             {turnosDelDia.length > 0 && (
-              <div className="flex items-center gap-3 w-full md:w-auto bg-slate-50 p-3 rounded-xl border border-slate-100 animate-in fade-in">
-                <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+              <div className="flex items-center gap-3 w-full md:w-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700 animate-in fade-in">
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
                   <Icon icon="mdi:clock-time-four-outline" width="24" />
                 </div>
                 <div className="flex flex-col w-full">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                  <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     Seleccionar Turno
                   </label>
                   <select
                     value={selectedTurnoId || ""}
                     onChange={(e) => setSelectedTurnoId(Number(e.target.value))}
-                    className="font-bold text-slate-700 bg-transparent outline-none cursor-pointer pr-4 w-full"
+                    className="font-bold text-slate-700 dark:text-slate-200 bg-transparent outline-none cursor-pointer pr-4 w-full"
                   >
                     {turnosDelDia.map((t, index) => (
                       <option key={t.id} value={t.id}>
@@ -322,14 +322,14 @@ export const MainVentas = () => {
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
             <Link
               to="/dashboard"
-              className="flex-1 md:flex-none px-4 py-2.5 text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 hover:text-blue-900 rounded-xl font-bold shadow-sm transition-all text-sm flex items-center justify-center gap-2"
+              className="flex-1 md:flex-none px-4 py-2.5 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-900 dark:hover:text-sky-400 rounded-xl font-bold shadow-sm transition-all text-sm flex items-center justify-center gap-2"
             >
               <Icon icon="mdi:view-dashboard-outline" width="18" /> Dashboard
             </Link>
             {turnoData && !reporteCerrado && (
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex-1 md:flex-none px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-xl font-bold shadow-md transition-all text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5"
+                className="flex-1 md:flex-none px-4 py-2.5 bg-blue-900 dark:bg-sky-600 hover:bg-blue-800 dark:hover:bg-sky-500 text-white rounded-xl font-bold shadow-md transition-all text-sm flex items-center justify-center gap-2 hover:-translate-y-0.5"
               >
                 <Icon icon="mdi:plus" width="18" /> Nueva Venta
               </button>
@@ -359,7 +359,7 @@ export const MainVentas = () => {
               <h2 className="text-3xl font-extrabold text-blue-900 tracking-tight">
                 Reporte Operativo
               </h2>
-              <p className="text-slate-500 font-bold text-lg mt-1">
+              <p className="text-slate-500 dark:text-slate-400 font-bold text-lg mt-1">
                 {new Date(fechaSeleccionada + "T00:00:00").toLocaleDateString(
                   "es-MX",
                   {
@@ -371,7 +371,7 @@ export const MainVentas = () => {
                 )}
               </p>
               {turnoData && (
-                <p className="text-xs text-slate-400 font-extrabold uppercase tracking-wider mt-2">
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-wider mt-2">
                   ID Turno: {turnoData.id}
                 </p>
               )}
@@ -384,25 +384,25 @@ export const MainVentas = () => {
               <>
                 {/* FOTOS EVIDENCIA */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:grid-cols-2 print:gap-4">
-                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="bg-slate-50 border-b border-slate-100 p-4 flex justify-between items-center text-slate-700 print:bg-gray-200 print:text-black">
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col transition-colors duration-300">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 p-4 flex justify-between items-center text-slate-700 dark:text-slate-300 print:bg-gray-200 print:text-black">
                       <span className="font-bold text-sm uppercase flex items-center gap-2">
                         <Icon icon="mdi:login" className="text-sky-500" width="20" /> Inicio de Turno
                       </span>
-                      <span className="text-xs bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold shadow-sm">
+                      <span className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-3 py-1 rounded-lg font-bold shadow-sm">
                         {turnoData.registrador_inicial?.nombre}
                       </span>
                     </div>
                     <div className="p-6 flex flex-col sm:flex-row gap-6 items-center">
                       <div className="w-full sm:w-1/2 text-center sm:text-left">
-                        <p className="text-xs text-slate-400 uppercase font-extrabold tracking-wider">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 uppercase font-extrabold tracking-wider">
                           Nivel Inicial
                         </p>
-                        <p className="text-4xl font-black text-slate-800 mt-1">
+                        <p className="text-4xl font-black text-slate-800 dark:text-white mt-1">
                           {turnoData.porcentaje_inicial}%
                         </p>
                       </div>
-                      <div className="w-full sm:w-1/2 aspect-video sm:aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                      <div className="w-full sm:w-1/2 aspect-video sm:aspect-square bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
                         <img
                           src={turnoData.url_inicial}
                           className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
@@ -413,22 +413,22 @@ export const MainVentas = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="bg-slate-50 border-b border-slate-100 p-4 flex justify-between items-center text-slate-700 print:bg-gray-200 print:text-black">
+                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col transition-colors duration-300">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 p-4 flex justify-between items-center text-slate-700 dark:text-slate-300 print:bg-gray-200 print:text-black">
                       <span className="font-bold text-sm uppercase flex items-center gap-2">
                         <Icon icon="mdi:logout" className="text-rose-500" width="20" /> Cierre de Turno
                       </span>
                     </div>
                     <div className="p-6 flex flex-col sm:flex-row gap-6 items-center">
                       <div className="w-full sm:w-1/2 text-center sm:text-left">
-                        <p className="text-xs text-slate-400 uppercase font-extrabold tracking-wider">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 uppercase font-extrabold tracking-wider">
                           Nivel Final
                         </p>
-                        <p className="text-4xl font-black text-slate-800 mt-1">
+                        <p className="text-4xl font-black text-slate-800 dark:text-white mt-1">
                           {turnoData.porcentaje_final ?? "--"}%
                         </p>
                       </div>
-                      <div className="w-full sm:w-1/2 aspect-video sm:aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center">
+                      <div className="w-full sm:w-1/2 aspect-video sm:aspect-square bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 flex items-center justify-center">
                         {turnoData.url_final ? (
                           <img
                             src={turnoData.url_final}
@@ -437,7 +437,7 @@ export const MainVentas = () => {
                             onClick={() => setPreviewImage(turnoData.url_final)}
                           />
                         ) : (
-                          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
                             Pendiente
                           </span>
                         )}
@@ -452,8 +452,8 @@ export const MainVentas = () => {
 
                 {(plantData.autotanque.length > 0 ||
                   plantData.carburacion.length > 0) && (
-                  <div className="mb-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                    <h3 className="font-extrabold text-slate-800 text-lg mb-6 flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <div className="mb-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm transition-colors duration-300">
+                    <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-lg mb-6 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
                       <Icon icon="mdi:factory" width="24" className="text-amber-500" />{" "}
                       Registro de Planta
                     </h3>
@@ -461,31 +461,31 @@ export const MainVentas = () => {
                     {plantData.autotanque.map((a, i) => (
                       <div
                         key={`auto-${i}`}
-                        className="flex flex-col md:flex-row justify-between items-center border-b py-4 last:border-0 border-slate-100 gap-4"
+                        className="flex flex-col md:flex-row justify-between items-center border-b py-4 last:border-0 border-slate-100 dark:border-slate-700 gap-4"
                       >
                         {/* 1. Título y Precio */}
                         <div className="flex flex-col w-full md:w-1/4">
-                          <span className="text-sm font-extrabold text-slate-700 flex items-center gap-2">
-                            <div className="p-2 bg-sky-50 rounded-lg text-sky-500">
+                          <span className="text-sm font-extrabold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                            <div className="p-2 bg-sky-50 dark:bg-sky-900/30 rounded-lg text-sky-500 dark:text-sky-400">
                               <Icon icon="hugeicons:tanker-truck" width="20" />
                             </div>
                             Carga Autotanque
                           </span>
-                          <span className="text-[11px] text-slate-400 font-bold ml-11 mt-1 tracking-wider uppercase">
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500 font-bold ml-11 mt-1 tracking-wider uppercase">
                             Precio: {formatMoney(a.precio)}
                           </span>
                         </div>
 
                         {/* 2. NIVELES Y FOTOS (Centro) */}
-                        <div className="flex items-center justify-center gap-5 bg-slate-50 px-5 py-3 rounded-xl border border-slate-100 w-full md:w-auto">
+                        <div className="flex items-center justify-center gap-5 bg-slate-50 dark:bg-slate-900/50 px-5 py-3 rounded-xl border border-slate-100 dark:border-slate-700 w-full md:w-auto">
                           {/* INICIAL */}
                           <div className="flex flex-col items-center gap-1 group">
-                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                               Inicial
                             </span>
                             <div
                               onClick={() => setPreviewImage(a.url_inicial)}
-                              className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-14 h-14 hover:ring-2 hover:ring-sky-400 transition-all"
+                              className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 dark:border-slate-600 shadow-sm w-14 h-14 hover:ring-2 hover:ring-sky-400 transition-all"
                             >
                               <img
                                 src={a.url_inicial}
@@ -494,7 +494,7 @@ export const MainVentas = () => {
                               />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                             </div>
-                            <span className="text-xs font-black text-slate-600">
+                            <span className="text-xs font-black text-slate-600 dark:text-slate-300">
                               {a.porcentaje_inicial}%
                             </span>
                           </div>
@@ -507,12 +507,12 @@ export const MainVentas = () => {
 
                           {/* FINAL */}
                           <div className="flex flex-col items-center gap-1 group">
-                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            <span className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                               Final
                             </span>
                             <div
                               onClick={() => setPreviewImage(a.url_final)}
-                              className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 shadow-sm w-14 h-14 hover:ring-2 hover:ring-emerald-400 transition-all"
+                              className="relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 dark:border-slate-600 shadow-sm w-14 h-14 hover:ring-2 hover:ring-emerald-400 transition-all"
                             >
                               <img
                                 src={a.url_final}
@@ -521,7 +521,7 @@ export const MainVentas = () => {
                               />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                             </div>
-                            <span className="text-xs font-black text-sky-600">
+                            <span className="text-xs font-black text-sky-600 dark:text-sky-400">
                               {a.porcentaje_final}%
                             </span>
                           </div>
@@ -530,15 +530,15 @@ export const MainVentas = () => {
                         {/* 3. Totales */}
                         <div className="text-right w-full md:w-1/4">
                           <div className="flex flex-col items-end">
-                            <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">
+                            <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 dark:text-slate-500">
                               Total Litros
                             </span>
-                            <span className="font-black text-slate-800 text-2xl">
+                            <span className="font-black text-slate-800 dark:text-white text-2xl">
                               {a.litros}
                             </span>
                           </div>
                           <div className="mt-1.5">
-                            <span className="text-xs text-emerald-700 font-extrabold bg-emerald-100 px-3 py-1 rounded-lg border border-emerald-200">
+                            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-extrabold bg-emerald-100 dark:bg-emerald-900/30 px-3 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/50">
                               {formatMoney(a.monto)}
                             </span>
                           </div>
@@ -549,24 +549,24 @@ export const MainVentas = () => {
                     {plantData.carburacion.map((c, i) => (
                       <div
                         key={i}
-                        className="flex justify-between border-b border-slate-100 py-3 last:border-0 items-center"
+                        className="flex justify-between border-b border-slate-100 dark:border-slate-700 py-3 last:border-0 items-center"
                       >
-                        <span className="font-bold text-slate-600 text-sm flex items-center gap-2"><Icon icon="mdi:gas-station" className="text-sky-500"/> Salida Carburación</span>
-                        <span className="font-black text-slate-800 bg-slate-100 px-3 py-1 rounded-lg">{c.litros} Lts</span>
+                        <span className="font-bold text-slate-600 dark:text-slate-300 text-sm flex items-center gap-2"><Icon icon="mdi:gas-station" className="text-sky-500"/> Salida Carburación</span>
+                        <span className="font-black text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-lg">{c.litros} Lts</span>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {/* TABLA DE VENTAS CON CLICK */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="p-3 bg-sky-50 text-sky-700 text-xs font-bold text-center border-b border-sky-100 flex items-center justify-center gap-2">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors duration-300">
+                  <div className="p-3 bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 text-xs font-bold text-center border-b border-sky-100 dark:border-sky-800/50 flex items-center justify-center gap-2">
                     <Icon icon="mdi:information-outline" width="18" />
                     Da clic en cualquier venta para ver todos sus detalles
                   </div>
                   <div className="overflow-x-auto w-full">
                     <table className="w-full text-sm text-left whitespace-nowrap">
-                      <thead className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                      <thead className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
                         <tr>
                           <th className="px-5 py-4">Fecha</th>
                           <th className="px-5 py-4">Cliente</th>
@@ -576,12 +576,12 @@ export const MainVentas = () => {
                           <th className="px-5 py-4 print:hidden text-center">Acciones</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                       {ventas.length === 0 ? (
                         <tr>
                           <td
                             colSpan="6"
-                            className="p-10 text-center text-slate-400 font-medium"
+                            className="p-10 text-center text-slate-400 dark:text-slate-500 font-medium"
                           >
                             No hay ventas registradas en este turno.
                           </td>
@@ -591,40 +591,40 @@ export const MainVentas = () => {
                           <tr
                             key={v.id_carga}
                             onClick={() => handleRowClick(v)}
-                            className="hover:bg-blue-50 cursor-pointer transition-colors group"
+                            className="hover:bg-blue-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
                           >
-                            <td className="px-4 py-3 font-mono text-xs text-gray-400 group-hover:text-blue-600">
+                            <td className="px-4 py-3 font-mono text-xs text-gray-400 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-sky-400">
                               {fixFechaVisual(
                                 v.fecha_carga,
                                 true
                               )}
                             </td>
-                            <td className="px-4 py-3 font-medium text-gray-700">
+                            <td className="px-4 py-3 font-medium text-gray-700 dark:text-slate-200">
                               <div className="flex flex-col">
-                                <span className="group-hover:text-blue-700 font-bold transition-colors">
+                                <span className="group-hover:text-blue-700 dark:group-hover:text-sky-300 font-bold transition-colors">
                                   {v.casa_habitacion?.nombre_cliente ||
                                     "Público General"}
                                 </span>
-                                <span className="text-[10px] text-gray-400 group-hover:text-blue-400">
+                                <span className="text-[10px] text-gray-400 dark:text-slate-400 group-hover:text-blue-400 dark:group-hover:text-sky-400">
                                   {v.casa_habitacion?.calle} #
                                   {v.casa_habitacion?.numero}
                                 </span>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-center font-bold text-gray-600">
+                            <td className="px-4 py-3 text-center font-bold text-gray-600 dark:text-slate-300">
                               {v.consumo_litros}
                             </td>
-                            <td className="px-4 py-3 text-right font-black text-gray-800">
+                            <td className="px-4 py-3 text-right font-black text-gray-800 dark:text-slate-100">
                               {formatMoney(v.monto_total)}
                             </td>
                             <td className="px-4 py-3 text-center">
                               <span
                                 className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${
                                   v.tipo_pago === "credito"
-                                    ? "bg-red-50 text-red-600"
+                                    ? "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                                     : v.tipo_pago === "tarjeta"
-                                    ? "bg-blue-50 text-blue-600"
-                                    : "bg-green-50 text-green-600"
+                                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                    : "bg-green-50 dark:bg-emerald-900/30 text-green-600 dark:text-emerald-400"
                                 }`}
                               >
                                 {v.tipo_pago}
@@ -633,7 +633,7 @@ export const MainVentas = () => {
                             <td className="px-5 py-3 print:hidden text-center">
                               <button
                                 onClick={(e) => handleDelete(e, v.id_carga)}
-                                className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-2 rounded-full transition-all"
+                                className="text-slate-300 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 p-2 rounded-full transition-all"
                               >
                                 <Icon icon="mdi:trash-can" width="20" />
                               </button>
@@ -647,15 +647,15 @@ export const MainVentas = () => {
                 </div>
               </>
             ) : (
-              <div className="p-16 text-center bg-white rounded-2xl border border-dashed border-slate-300 shadow-sm">
+              <div className="p-16 text-center bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 shadow-sm">
                 <Icon
                   icon="mdi:calendar-remove"
-                  className="mx-auto text-slate-200 w-20 h-20 mb-4"
+                  className="mx-auto text-slate-200 dark:text-slate-600 w-20 h-20 mb-4"
                 />
-                <h3 className="text-lg font-extrabold text-slate-500">
+                <h3 className="text-lg font-extrabold text-slate-500 dark:text-slate-400">
                   No hay turnos registrados
                 </h3>
-                <p className="text-slate-400 text-sm font-medium mt-1">
+                <p className="text-slate-400 dark:text-slate-500 text-sm font-medium mt-1">
                   No se inició operación en esta fecha.
                 </p>
               </div>
@@ -666,15 +666,15 @@ export const MainVentas = () => {
 
       {/* --- MODAL DE DETALLE DE VENTA (SOLO LECTURA) --- */}
       {selectedVentaDetalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-50 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-700 transition-colors duration-300">
             {/* Header */}
-            <div className="bg-blue-900 p-5 text-white flex justify-between items-center">
+            <div className="bg-blue-900 dark:bg-slate-900 p-5 text-white flex justify-between items-center">
               <div>
                 <h3 className="font-extrabold text-lg flex items-center gap-2 text-white">
                   <Icon icon="mdi:receipt-text-outline" width="24" className="text-sky-400" /> Detalle de Venta
                 </h3>
-                <p className="text-xs text-blue-200 mt-1 font-medium tracking-wider">
+                <p className="text-xs text-blue-200 dark:text-slate-400 mt-1 font-medium tracking-wider">
                   ID Carga: {selectedVentaDetalle.id_carga}
                 </p>
               </div>
@@ -689,19 +689,19 @@ export const MainVentas = () => {
             {/* Body */}
             <div className="p-6 space-y-5">
               {/* Sección 1: Cliente */}
-              <div className="flex gap-4 items-start bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="p-3 bg-sky-50 text-sky-600 rounded-full">
+              <div className="flex gap-4 items-start bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="p-3 bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 rounded-full">
                   <Icon icon="mdi:account" width="28" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                  <p className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                     Cliente
                   </p>
-                  <p className="font-black text-slate-800 text-lg leading-tight mt-0.5">
+                  <p className="font-black text-slate-800 dark:text-slate-100 text-lg leading-tight mt-0.5">
                     {selectedVentaDetalle.casa_habitacion?.nombre_cliente ||
                       "Público General"}
                   </p>
-                  <p className="text-xs font-bold text-slate-500 mt-1.5 flex items-center gap-1">
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
                     <Icon icon="mdi:map-marker" className="text-sky-500"/>
                     {selectedVentaDetalle.casa_habitacion?.calle} #
                     {selectedVentaDetalle.casa_habitacion?.numero},{" "}
@@ -712,30 +712,30 @@ export const MainVentas = () => {
 
               {/* Sección 2: Operativo (Litros y Ret) */}
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                <div className="bg-white dark:bg-slate-900/50 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                  <p className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                     Totales
                   </p>
-                  <p className="font-black text-slate-800 text-xl mt-1">
+                  <p className="font-black text-slate-800 dark:text-slate-100 text-xl mt-1">
                     {selectedVentaDetalle.consumo_litros} L
                   </p>
                 </div>
-                <div className="bg-rose-50 p-3 rounded-2xl border border-rose-100 shadow-sm">
-                  <p className="text-[10px] font-extrabold text-rose-400 uppercase tracking-widest">
+                <div className="bg-rose-50 dark:bg-rose-900/30 p-3 rounded-2xl border border-rose-100 dark:border-rose-800/50 shadow-sm">
+                  <p className="text-[10px] font-extrabold text-rose-400 dark:text-rose-500 uppercase tracking-widest">
                     RET
                   </p>
-                  <p className="font-black text-rose-700 text-xl mt-1">
+                  <p className="font-black text-rose-700 dark:text-rose-400 text-xl mt-1">
                     {selectedVentaDetalle.ret
                       ? `-${selectedVentaDetalle.ret}`
                       : "0"}{" "}
                     L
                   </p>
                 </div>
-                <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-100 shadow-sm">
-                  <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest">
+                <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-2xl border border-emerald-100 dark:border-emerald-800/50 shadow-sm">
+                  <p className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-500 uppercase tracking-widest">
                     Reales
                   </p>
-                  <p className="font-black text-emerald-700 text-xl mt-1">
+                  <p className="font-black text-emerald-700 dark:text-emerald-400 text-xl mt-1">
                     {(
                       Number(selectedVentaDetalle.consumo_litros) -
                       Number(selectedVentaDetalle.ret || 0)
@@ -746,34 +746,34 @@ export const MainVentas = () => {
               </div>
 
               {/* Sección 3: Financiero */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="bg-white dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
                 <div className="flex justify-between items-end">
-                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Monto Total
                   </span>
-                  <span className="text-2xl font-black text-slate-800">
+                  <span className="text-2xl font-black text-slate-800 dark:text-slate-100">
                     {formatMoney(selectedVentaDetalle.monto_total)}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center text-sm border-t border-slate-100 pt-4">
-                  <span className="text-slate-500 font-bold">Método Principal:</span>
-                  <span className="font-black uppercase text-slate-700 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 shadow-sm text-xs tracking-wider">
+                <div className="flex justify-between items-center text-sm border-t border-slate-100 dark:border-slate-700 pt-4">
+                  <span className="text-slate-500 dark:text-slate-400 font-bold">Método Principal:</span>
+                  <span className="font-black uppercase text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-600 shadow-sm text-xs tracking-wider">
                     {selectedVentaDetalle.tipo_pago}
                   </span>
                 </div>
 
                 {/* Detalles extra si es Crédito o Mixto */}
                 {selectedVentaDetalle.monto_pendiente > 0 && (
-                  <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mt-2">
-                    <div className="flex justify-between text-sm text-rose-700 font-black">
+                  <div className="bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl border border-rose-100 dark:border-rose-800/50 mt-2">
+                    <div className="flex justify-between text-sm text-rose-700 dark:text-rose-400 font-black">
                       <span>Deuda/Pendiente:</span>
                       <span>
                         {formatMoney(selectedVentaDetalle.monto_pendiente)}
                       </span>
                     </div>
                     {selectedVentaDetalle.tipo_pago_resto && (
-                      <div className="flex justify-between text-xs font-bold text-rose-500 mt-2 border-t border-rose-100/50 pt-2">
+                      <div className="flex justify-between text-xs font-bold text-rose-500 dark:text-rose-400 mt-2 border-t border-rose-100/50 dark:border-rose-800/50 pt-2">
                         <span>Resto pagado:</span>
                         <span className="uppercase font-black">
                           {selectedVentaDetalle.tipo_pago_resto}
@@ -784,16 +784,16 @@ export const MainVentas = () => {
                 )}
               </div>
 
-              <div className="text-center text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
+              <div className="text-center text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center justify-center gap-1">
                 <Icon icon="mdi:calendar-clock" />
                 {fixFechaVisual(selectedVentaDetalle.fecha_carga)}
               </div>
             </div>
 
-            <div className="bg-white p-5 border-t border-slate-200 flex justify-end">
+            <div className="bg-white dark:bg-slate-800 p-5 border-t border-slate-200 dark:border-slate-700 flex justify-end">
               <button
                 onClick={() => setSelectedVentaDetalle(null)}
-                className="px-6 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all w-full text-sm shadow-md"
+                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-700 dark:hover:bg-slate-600 transition-all w-full text-sm shadow-md"
               >
                 Cerrar
               </button>

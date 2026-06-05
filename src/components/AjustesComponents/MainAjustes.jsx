@@ -149,17 +149,17 @@ export const MainAjustes = () => {
   };
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
       
       {/* HEADER */}
-      <div className="bg-white shadow-sm border-b border-gray-200 p-4 sticky top-0 z-10">
+      <div className="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700 p-4 sticky top-0 z-10 transition-colors duration-300">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-               <Icon icon="mdi:cog-box" className="text-gray-400"/> Ajustes
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+               <Icon icon="mdi:cog-box" className="text-gray-400 dark:text-slate-400"/> Ajustes
             </h1>
             <Link
             to="/dashboard"
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors font-medium text-sm"
             >
             <Icon icon="mdi:arrow-left" width="20" />
             Volver
@@ -170,15 +170,15 @@ export const MainAjustes = () => {
       <div className="max-w-5xl mx-auto p-4 space-y-8 mt-6">
 
         {/* 1. SECCIÓN PERFIL */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col md:flex-row items-center gap-8">
+        <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-8 flex flex-col md:flex-row items-center gap-8 transition-colors duration-300">
             <div className="relative group">
-                <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden relative bg-gray-100">
+                <div className="w-32 h-32 rounded-full border-4 border-white dark:border-slate-800 shadow-lg overflow-hidden relative bg-gray-100 dark:bg-slate-700 transition-colors duration-300">
                     {previewUrl ? (
                         <img src={previewUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : user?.user_metadata?.avatar_url ? (
                         <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-slate-500">
                             <Icon icon="mdi:user" width="48" />
                         </div>
                     )}
@@ -195,22 +195,22 @@ export const MainAjustes = () => {
             </div>
 
             <div className="text-center md:text-left">
-                <h2 className="text-xl font-bold text-gray-800">Tu Perfil</h2>
-                <p className="text-gray-500 text-sm mt-1">Personaliza tu foto de perfil. Se guardará automáticamente.</p>
-                <div className="mt-2 text-xs font-mono text-gray-400 bg-gray-100 px-3 py-1 rounded-full inline-block">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Tu Perfil</h2>
+                <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">Personaliza tu foto de perfil. Se guardará automáticamente.</p>
+                <div className="mt-2 text-xs font-mono text-gray-500 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 px-3 py-1 rounded-full inline-block">
                     {user?.email}
                 </div>
             </div>
         </section>
 
         {/* 2. SECCIÓN TARIFAS */}
-        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+        <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 p-6 md:p-8 transition-colors duration-300">
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                       <Icon icon="mdi:tag-multiple" className="text-blue-500" /> Tarifas Vigentes
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                       <Icon icon="mdi:tag-multiple" className="text-blue-500 dark:text-blue-400" /> Tarifas Vigentes
                     </h2>
-                    <p className="text-gray-500 text-sm mt-1">Precios actuales aplicados a las ventas.</p>
+                    <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">Precios actuales aplicados a las ventas.</p>
                 </div>
                 <button
                     onClick={() => setIsTarifaModalOpen(true)}
@@ -245,7 +245,7 @@ export const MainAjustes = () => {
             </div>
             
             {currentTarifas.fecha_vigente && (
-                <div className="mt-4 text-center text-xs text-gray-400">
+                <div className="mt-4 text-center text-xs text-gray-400 dark:text-slate-500">
                     Última actualización: {new Date(currentTarifas.fecha_vigente + 'T00:00:00').toLocaleDateString()}
                 </div>
             )}
@@ -278,10 +278,10 @@ export const MainAjustes = () => {
 
         {/* 4. CONTENIDO DE GESTIÓN (TARJETAS) */}
         {activeTab && (
-            <section className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-700 text-lg capitalize flex items-center gap-2">
-                        {activeTab} <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+            <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-100 dark:border-slate-700 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 transition-colors">
+                <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center bg-gray-50 dark:bg-slate-900/50">
+                    <h3 className="font-bold text-gray-700 dark:text-slate-200 text-lg capitalize flex items-center gap-2">
+                        {activeTab} <span className="text-xs bg-gray-200 dark:bg-slate-700 text-gray-600 dark:text-slate-300 px-2 py-0.5 rounded-full">
                             {(activeTab === 'personal' ? personalList : activeTab === 'unidad' ? unidadesList : bancoList).length}
                         </span>
                     </h3>
@@ -297,9 +297,9 @@ export const MainAjustes = () => {
                     </button>
                 </div>
                 
-                <div className="bg-gray-50/50">
+                <div className="bg-gray-50/50 dark:bg-slate-900/20">
                     {loadingData ? (
-                        <div className="p-10 text-center text-gray-500">
+                        <div className="p-10 text-center text-gray-500 dark:text-slate-400">
                             <Icon icon="line-md:loading-loop" width="30" className="mx-auto mb-2 text-indigo-500" />
                             Cargando datos...
                         </div>
@@ -362,9 +362,9 @@ export const MainAjustes = () => {
 // 1. Tarjeta de Menú (Tabs)
 const MenuCard = ({ title, icon, color, isActive, onClick }) => {
     const colors = {
-        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100',
-        orange: 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100',
-        pink: 'bg-pink-50 text-pink-600 border-pink-200 hover:bg-pink-100',
+        indigo: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50',
+        orange: 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/50',
+        pink: 'bg-pink-50 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-800 hover:bg-pink-100 dark:hover:bg-pink-900/50',
     };
     
     return (
@@ -372,18 +372,18 @@ const MenuCard = ({ title, icon, color, isActive, onClick }) => {
             onClick={onClick}
             className={`
                 p-6 rounded-2xl border transition-all duration-200 flex items-center gap-4 text-left w-full
-                ${isActive ? 'ring-2 ring-offset-2 ring-blue-500 shadow-md scale-[1.02]' : 'shadow-sm hover:shadow-md hover:bg-gray-50'}
-                bg-white border-gray-100
+                ${isActive ? 'ring-2 ring-offset-2 dark:ring-offset-slate-900 ring-blue-500 shadow-md scale-[1.02] border-transparent dark:border-transparent' : 'shadow-sm hover:shadow-md hover:bg-gray-50 dark:hover:bg-slate-700/50 border-gray-100 dark:border-slate-700'}
+                bg-white dark:bg-slate-800
             `}
         >
             <div className={`p-3 rounded-xl transition-colors ${colors[color]}`}>
                 <Icon icon={icon} width="24" />
             </div>
             <div>
-                <h3 className="font-bold text-gray-800">{title}</h3>
-                <p className="text-xs text-gray-400 font-medium">Gestionar {title.toLowerCase()}</p>
+                <h3 className="font-bold text-gray-800 dark:text-slate-100">{title}</h3>
+                <p className="text-xs text-gray-400 dark:text-slate-400 font-medium">Gestionar {title.toLowerCase()}</p>
             </div>
-            <div className="ml-auto text-gray-300">
+            <div className="ml-auto text-gray-300 dark:text-slate-500">
                 <Icon icon={isActive ? "mdi:chevron-up" : "mdi:chevron-down"} width="24" />
             </div>
         </button>
@@ -393,7 +393,7 @@ const MenuCard = ({ title, icon, color, isActive, onClick }) => {
 // 2. NUEVO: Contenido de Tarjetas (Reemplaza a TableContent)
 const CardsContent = ({ type, data, onEdit, onDelete }) => {
     if (data.length === 0) return (
-        <div className="p-10 flex flex-col items-center justify-center text-gray-400">
+        <div className="p-10 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
             <Icon icon="mdi:package-variant-closed" width="48" className="mb-2 opacity-50"/>
             <p>No hay registros disponibles.</p>
         </div>
@@ -404,14 +404,14 @@ const CardsContent = ({ type, data, onEdit, onDelete }) => {
             {data.map((item) => (
                 <div 
                     key={item.id} 
-                    className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-lg transition-all duration-200 relative group flex flex-col"
+                    className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-5 shadow-sm hover:shadow-lg transition-all duration-200 relative group flex flex-col"
                 >
                     {/* Encabezado de la Tarjeta con Icono y Acciones */}
                     <div className="flex justify-between items-start mb-4">
                         <div className={`p-2.5 rounded-lg ${
-                            type === 'personal' ? 'bg-indigo-100 text-indigo-600' :
-                            type === 'unidad' ? 'bg-orange-100 text-orange-600' :
-                            'bg-pink-100 text-pink-600'
+                            type === 'personal' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' :
+                            type === 'unidad' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
+                            'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400'
                         }`}>
                             <Icon icon={
                                 type === 'personal' ? "mdi:account" :
@@ -423,13 +423,13 @@ const CardsContent = ({ type, data, onEdit, onDelete }) => {
                         <div className="flex gap-1">
                             <button 
                                 onClick={() => onEdit(item)} 
-                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                className="p-2 text-gray-400 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
                             >
                                 <Icon icon="mdi:pencil" width="18" />
                             </button>
                             <button 
                                 onClick={() => onDelete(item.id)} 
-                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-2 text-gray-400 dark:text-slate-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
                             >
                                 <Icon icon="mdi:trash-can" width="18" />
                             </button>
@@ -442,14 +442,14 @@ const CardsContent = ({ type, data, onEdit, onDelete }) => {
                     {type === 'personal' && (
                         <div className="space-y-2">
                             <div>
-                                <h4 className="font-bold text-gray-800 text-lg leading-tight">
+                                <h4 className="font-bold text-gray-800 dark:text-slate-100 text-lg leading-tight">
                                     {item.nombre} {item.apellidos}
                                 </h4>
-                                <span className="inline-block px-2 py-0.5 mt-1 rounded text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
+                                <span className="inline-block px-2 py-0.5 mt-1 rounded text-xs font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">
                                     {item.roll}
                                 </span>
                             </div>
-                            <div className="pt-3 mt-2 border-t border-gray-100 flex items-center gap-2 text-gray-500 text-sm">
+                            <div className="pt-3 mt-2 border-t border-gray-100 dark:border-slate-700 flex items-center gap-2 text-gray-500 dark:text-slate-400 text-sm">
                                 <Icon icon="mdi:phone" /> {item.telefono}
                             </div>
                         </div>
@@ -459,19 +459,19 @@ const CardsContent = ({ type, data, onEdit, onDelete }) => {
                     {type === 'unidad' && (
                         <div className="space-y-2">
                             <div>
-                                <h4 className="font-bold text-gray-800 text-lg leading-tight">
+                                <h4 className="font-bold text-gray-800 dark:text-slate-100 text-lg leading-tight">
                                     Unidad: {item.num_unidad}
                                 </h4>
-                                <p className="text-sm text-gray-500">{item.empresa}</p>
+                                <p className="text-sm text-gray-500 dark:text-slate-400">{item.empresa}</p>
                             </div>
-                            <div className="pt-3 mt-2 border-t border-gray-100 space-y-1">
+                            <div className="pt-3 mt-2 border-t border-gray-100 dark:border-slate-700 space-y-1">
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="text-gray-400">Permiso CRE:</span>
-                                    <span className="font-mono text-gray-600">{item.permiso_reparto || 'N/A'}</span>
+                                    <span className="text-gray-400 dark:text-slate-500">Permiso CRE:</span>
+                                    <span className="font-mono text-gray-600 dark:text-slate-300">{item.permiso_reparto || 'N/A'}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="text-gray-400">Capacidad:</span>
-                                    <span className="font-bold text-gray-600">{item.capacidad || '0'} Lts</span>
+                                    <span className="text-gray-400 dark:text-slate-500">Capacidad:</span>
+                                    <span className="font-bold text-gray-600 dark:text-slate-300">{item.capacidad || '0'} Lts</span>
                                 </div>
                             </div>
                         </div>
@@ -481,19 +481,19 @@ const CardsContent = ({ type, data, onEdit, onDelete }) => {
                     {type === 'banco' && (
                         <div className="space-y-2">
                             <div>
-                                <h4 className="font-bold text-gray-800 text-lg leading-tight">
+                                <h4 className="font-bold text-gray-800 dark:text-slate-100 text-lg leading-tight">
                                     {item.banco}
                                 </h4>
-                                <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mt-1">{item.apodo}</p>
+                                <p className="text-xs text-gray-400 dark:text-slate-500 uppercase font-bold tracking-wider mt-1">{item.apodo}</p>
                             </div>
-                            <div className="pt-3 mt-2 border-t border-gray-100 space-y-2">
+                            <div className="pt-3 mt-2 border-t border-gray-100 dark:border-slate-700 space-y-2">
                                 <div>
-                                    <p className="text-[10px] text-gray-400 uppercase">Titular</p>
-                                    <p className="text-sm font-medium text-gray-700 truncate">{item.nom_responsable}</p>
+                                    <p className="text-[10px] text-gray-400 dark:text-slate-500 uppercase">Titular</p>
+                                    <p className="text-sm font-medium text-gray-700 dark:text-slate-300 truncate">{item.nom_responsable}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[10px] text-gray-400 uppercase">Cuenta / CLABE</p>
-                                    <p className="font-mono text-sm text-gray-600 bg-gray-50 p-1 rounded border border-gray-200 text-center">
+                                    <p className="text-[10px] text-gray-400 dark:text-slate-500 uppercase">Cuenta / CLABE</p>
+                                    <p className="font-mono text-sm text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-900/50 p-1 rounded border border-gray-200 dark:border-slate-700 text-center">
                                         {item.cuenta || item.clave_int || '****'}
                                     </p>
                                 </div>

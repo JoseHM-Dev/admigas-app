@@ -13,6 +13,28 @@ export const AuthProvider = ({ children }) => {
   const [datosBancarios, setDatosBancarios] = useState(null);
   const [tarifa, setTarifa] = useState(null);
 
+  // --- ESTADO PARA MODO OSCURO ---
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") === "dark" || 
+        (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
+
+  const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
+
   const fetchUserData = useCallback(async (currentSession) => {
     if (currentSession) {
       setLoadingPersonal(true);
@@ -142,6 +164,8 @@ export const AuthProvider = ({ children }) => {
     datosBancarios,
     tarifa,
     fetchUserData: () => fetchUserData(session),
+    isDarkMode,
+    toggleDarkMode,
   };
 
   // Muestra un loader SOLO si es la carga inicial o si hay sesión pero AÚN NO hay datos de usuario.
