@@ -10,6 +10,7 @@ export default function BuscadorFlotante({ onEdit, onReport }) {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   
   const wrapperRef = useRef(null);
 
@@ -46,6 +47,8 @@ export default function BuscadorFlotante({ onEdit, onReport }) {
     function handleClickOutside(event) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setResults([]);
+        setIsOpen(false);
+        setSearchTerm("");
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -58,6 +61,7 @@ export default function BuscadorFlotante({ onEdit, onReport }) {
     setShowActionSheet(true);
     setResults([]);
     setSearchTerm("");
+    setIsOpen(false);
   };
 
   const handleOpenMap = (client) => {
@@ -110,12 +114,12 @@ export default function BuscadorFlotante({ onEdit, onReport }) {
 
   return (
     <>
-      {/* BARRA FLOTANTE ESTILO iPHONE */}
-      <div ref={wrapperRef} className="fixed left-4 right-24 md:right-auto md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-50 transition-all bottom-[calc(1.5rem+env(safe-area-inset-bottom))]">
+      {/* CONTENEDOR FLOTANTE Alineado a la derecha, Z-40 para estar debajo de modales */}
+      <div ref={wrapperRef} className="fixed right-6 bottom-6 z-40 flex flex-col items-end transition-all">
         
         {/* Resultados Flotantes hacia arriba */}
-        {results.length > 0 && (
-          <ul className="absolute bottom-full mb-3 w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200 dark:border-slate-700 rounded-3xl shadow-2xl max-h-64 overflow-y-auto z-50 animate-in slide-in-from-bottom-5">
+        {isOpen && results.length > 0 && (
+          <ul className="mb-3 w-[calc(100vw-3rem)] md:w-[400px] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-gray-200 dark:border-slate-700 rounded-3xl shadow-2xl max-h-64 overflow-y-auto animate-in slide-in-from-bottom-5">
             {results.map((client) => (
               <li
                 key={client.id_casa}
@@ -136,20 +140,35 @@ export default function BuscadorFlotante({ onEdit, onReport }) {
           </ul>
         )}
 
-        {/* Barra de Búsqueda */}
-        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-xl shadow-blue-900/10 dark:shadow-black/50 rounded-full border border-gray-200/80 dark:border-slate-700/80 flex items-center px-4 py-3.5 focus-within:ring-4 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
-          <Icon icon="mdi:magnify" className="text-gray-400 dark:text-slate-400 shrink-0" width="24" />
-          <input
-            type="text"
-            placeholder="Buscar clientes rápido..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent flex-1 outline-none ml-3 text-gray-800 dark:text-white font-medium placeholder-gray-400 dark:placeholder-slate-500 text-[15px]"
-          />
-          {isSearching && <Icon icon="line-md:loading-loop" className="text-blue-500 shrink-0 ml-2" width="20" />}
-          {searchTerm && !isSearching && (
-            <button onClick={() => setSearchTerm("")} className="text-gray-400 hover:text-red-500 transition-colors ml-2">
-              <Icon icon="mdi:close-circle" width="20" />
+        {/* Barra de Búsqueda o Botón */}
+        <div className="flex justify-end w-full">
+          {isOpen ? (
+            <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-xl shadow-blue-900/10 dark:shadow-black/50 rounded-full border border-gray-200/80 dark:border-slate-700/80 flex items-center px-4 py-3.5 focus-within:ring-4 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all w-[calc(100vw-3rem)] md:w-[400px] animate-in slide-in-from-right-5">
+              <Icon icon="mdi:magnify" className="text-gray-400 dark:text-slate-400 shrink-0" width="24" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Buscar clientes rápido..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-transparent flex-1 outline-none ml-3 text-gray-800 dark:text-white font-medium placeholder-gray-400 dark:placeholder-slate-500 text-[15px]"
+              />
+              {isSearching && <Icon icon="line-md:loading-loop" className="text-blue-500 shrink-0 ml-2" width="20" />}
+              {searchTerm && !isSearching && (
+                <button onClick={() => { setSearchTerm(""); setResults([]); }} className="text-gray-400 hover:text-red-500 transition-colors ml-2">
+                  <Icon icon="mdi:close-circle" width="20" />
+                </button>
+              )}
+              <button onClick={() => { setIsOpen(false); setSearchTerm(""); setResults([]); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors ml-2 pl-2 border-l border-gray-300 dark:border-slate-600">
+                <Icon icon="mdi:chevron-right" width="24" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsOpen(true)}
+              className="bg-white dark:bg-slate-800 text-blue-600 dark:text-sky-400 p-4 rounded-full shadow-lg shadow-blue-500/20 dark:shadow-sky-500/20 border border-gray-200 dark:border-slate-700 transition-all duration-300 hover:scale-105"
+            >
+              <Icon icon="mdi:magnify" width="28" />
             </button>
           )}
         </div>

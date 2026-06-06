@@ -23,18 +23,30 @@ export const ModalNuevoPagoEdificio = ({
     setError(null);
 
     try {
-      const nuevoSaldoPorPagar = factura.saldo_por_pagar - montoNumerico;
-      const estadoPago = nuevoSaldoPorPagar <= 0;
-
-      const { error: updateError } = await supabase
+      // Obtenemos todas las facturas pendientes del departamento
+      const { data: facturasPendientes, error: fetchError } = await supabase
         .from("factura_departamento")
-        .update({
-          saldo_por_pagar: nuevoSaldoPorPagar,
-          estado_pago: estadoPago,
-        })
-        .eq("id_factura_departamento", factura.id_factura); // Asegúrate que la llave primaria sea correcta
+        .select("*")
+        .eq("departamento_id", factura.departamento_id)
+        .eq("estado_pago", false);
 
-      if (updateError) throw new Error(updateError.message);
+      if (fetchError) throw new Error(fetchError.message);
+
+      // Descontamos el abono a cada una (ya que saldo_por_pagar es acumulativo)
+      for (const fac of facturasPendientes) {
+        const nuevoSaldo = Math.max(0, fac.saldo_por_pagar - montoNumerico);
+        const estadoPago = nuevoSaldo <= 0;
+
+        const { error: updateError } = await supabase
+          .from("factura_departamento")
+          .update({
+            saldo_por_pagar: nuevoSaldo,
+            estado_pago: estadoPago,
+          })
+          .eq("id_factura", fac.id_factura);
+
+        if (updateError) throw new Error(updateError.message);
+      }
 
       onPagoGuardado();
       onClose();
@@ -50,12 +62,30 @@ export const ModalNuevoPagoEdificio = ({
     setError(null);
 
     try {
-      const { error: updateError } = await supabase
-        .from("factura_departamento")
-        .update({ saldo_por_pagar: 0, estado_pago: true })
-        .eq("id_factura", factura.id_factura);
+      const montoALiquidar = factura.saldo_por_pagar;
 
-      if (updateError) throw new Error(updateError.message);
+      const { data: facturasPendientes, error: fetchError } = await supabase
+        .from("factura_departamento")
+        .select("*")
+        .eq("departamento_id", factura.departamento_id)
+        .eq("estado_pago", false);
+
+      if (fetchError) throw new Error(fetchError.message);
+
+      for (const fac of facturasPendientes) {
+        const nuevoSaldo = Math.max(0, fac.saldo_por_pagar - montoALiquidar);
+        const estadoPago = nuevoSaldo <= 0;
+
+        const { error: updateError } = await supabase
+          .from("factura_departamento")
+          .update({
+            saldo_por_pagar: nuevoSaldo,
+            estado_pago: estadoPago,
+          })
+          .eq("id_factura", fac.id_factura);
+
+        if (updateError) throw new Error(updateError.message);
+      }
 
       onPagoGuardado();
       onClose();

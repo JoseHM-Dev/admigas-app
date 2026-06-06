@@ -77,13 +77,11 @@ const ModalGenerarFactura = ({ isOpen, departamento, onClose, onFacturaGenerada 
           .from("factura_departamento")
           .select("saldo_por_pagar")
           .eq("departamento_id", departamento.id_departamento)
-          .eq("estado_pago", false);
+          .eq("estado_pago", false)
+          .order("id_factura", { ascending: false })
+          .limit(1);
 
-        const totalDeuda =
-          facturasPendientes?.reduce(
-            (acc, curr) => acc + (curr.saldo_por_pagar || 0),
-            0
-          ) || 0;
+        const totalDeuda = facturasPendientes?.length > 0 ? facturasPendientes[0].saldo_por_pagar : 0;
         setDeudaAnterior(totalDeuda);
       } catch (err) {
         console.error("Error:", err);

@@ -259,7 +259,7 @@ export const MainDashboard = () => {
     const { data, error } = await supabase
       .from("agenda")
       .select(
-        `id, fecha_proxima_carga, comentario, id_casa, casa_habitacion (nombre_cliente, calle, numero, colonia)`
+        `id, fecha_proxima_carga, comentario, id_casa, casa_habitacion (nombre_cliente, calle, numero, colonia, latitud, longitud)`
       )
       .lte("fecha_proxima_carga", endOfToday)
       .order("fecha_proxima_carga", { ascending: true });
@@ -354,6 +354,19 @@ export const MainDashboard = () => {
     const { error } = await supabase.from("agenda").delete().eq("id", id_agenda);
     if (error) console.error("Error deleting agenda item:", error);
     else fetchAgenda();
+  };
+
+  const handleOpenMap = (item) => {
+    const casa = item.casa_habitacion;
+    if (casa && casa.latitud && casa.longitud) {
+      const url = `https://www.google.com/maps?q=${casa.latitud},${casa.longitud}`;
+      window.open(url, "_blank");
+    } else if (casa) {
+      // Fallback: Buscar por dirección si no hay coordenadas exactas
+      const address = `${casa.calle} ${casa.numero}, ${casa.colonia}`;
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+      window.open(url, "_blank");
+    }
   };
 
   useEffect(() => {
@@ -524,7 +537,7 @@ export const MainDashboard = () => {
       {estadoDelDia === "INICIADO" && (
         <button
           onClick={handleOpenVentaModal}
-          className={`fixed bottom-6 right-6 z-40 bg-sky-500 text-white p-4 rounded-full shadow-lg shadow-sky-500/40 transition-all duration-300 hover:scale-105 ${
+          className={`fixed bottom-24 right-6 z-40 bg-sky-500 text-white p-4 rounded-full shadow-lg shadow-sky-500/40 transition-all duration-300 hover:scale-105 ${
             isConsoleVisible ? "md:opacity-0 md:invisible md:translate-y-5" : "opacity-100 visible translate-y-0"
           }`}
         >
@@ -725,30 +738,27 @@ export const MainDashboard = () => {
                     }
                   `}
                 >
-                  <div
-                    className={`absolute top-4 right-4 text-[10px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider
-                      ${
-                        status === "atrasado"
-                          ? "bg-rose-50 text-rose-600"
-                          : "bg-emerald-50 text-emerald-600"
-                      }
-                  `}
-                  >
-                    {status === "atrasado" ? "Atrasado" : "Para Hoy"}
-                  </div>
-
-                  <div className="flex items-start gap-4 mb-3">
-                    <div className="bg-slate-50 border border-slate-100 p-3 rounded-full text-sky-500">
-                      <Icon icon="mdi:account-circle-outline" width="28" />
+                  <div className="flex justify-between items-start gap-2 mb-3">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-slate-50 border border-slate-100 p-3 rounded-full text-sky-500 shrink-0">
+                        <Icon icon="mdi:account-circle-outline" width="28" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-black text-slate-800 text-lg leading-tight truncate whitespace-normal break-words">
+                          {item.casa_habitacion.nombre_cliente}
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-bold truncate whitespace-normal break-words">
+                          <Icon icon="mdi:map-marker" width="12" className="shrink-0" />
+                          {item.casa_habitacion.colonia}
+                        </p>
+                      </div>
                     </div>
-                    <div className="pr-16">
-                      <h3 className="font-black text-slate-800 text-lg leading-tight">
-                        {item.casa_habitacion.nombre_cliente}
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1 font-bold">
-                        <Icon icon="mdi:map-marker" width="12" />
-                        {item.casa_habitacion.colonia}
-                      </p>
+                    <div
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider shrink-0 mt-1
+                        ${status === "atrasado" ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}
+                      `}
+                    >
+                      {status === "atrasado" ? "Atrasado" : "Para Hoy"}
                     </div>
                   </div>
 
@@ -784,6 +794,13 @@ export const MainDashboard = () => {
                       })}
                     </span>
                     <div className="flex gap-2">
+                      <button
+                        onClick={() => handleOpenMap(item)}
+                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        title="Ver ubicación en Google Maps"
+                      >
+                        <Icon icon="mdi:google-maps" width="22" />
+                      </button>
                       <button
                         onClick={() => handleReagendar(item)}
                         className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
