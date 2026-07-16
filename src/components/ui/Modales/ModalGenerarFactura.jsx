@@ -146,8 +146,20 @@ const ModalGenerarFactura = ({ isOpen, departamento, onClose, onFacturaGenerada 
       );
       const blob = await pdf(doc).toBlob();
 
-      const fileName = `factura_${departamento.id_departamento}_${Date.now()}.pdf`;
-      const filePath = `generadas/${fileName}`;
+      // --- MODIFICACIÓN PARA EL NOMBRE DEL ARCHIVO ---
+      const getMonthName = (date) => {
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        return monthNames[date.getMonth()];
+      };
+      
+      const currentDate = new Date();
+      const monthName = getMonthName(currentDate);
+      const deptoNumber = departamento.no_depto || 'S/N';
+      // Limpiamos el nombre del edificio para usarlo en el nombre del archivo
+      const edificioName = (departamento.edificio?.calle || 'Edificio').replace(/\s+/g, '');
+
+      const fileName = `Factura_Dep${deptoNumber}_${monthName}_${edificioName}.pdf`;
+      const filePath = `generadas/${fileName}`; // La carpeta en Supabase Storage
 
       const { error: uploadError } = await supabase.storage
         .from("facturas")
