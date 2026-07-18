@@ -1,4 +1,4 @@
-import LogoAdmiGas from "../../assets/img/icono-logo.png";
+import LogoAdmiGas from "../../assets/img/LP.png";
 import LetrasAdmiGas from "../../assets/img/letras-logo.png";
 import { Icon } from "@iconify/react";
 import { useAuth } from "../../auth/useAuth";
@@ -65,7 +65,6 @@ export const NavBarUser = () => {
           className="flex hover:scale-105 transition-all duration-300 items-center gap-2 sm:gap-3 hover:cursor-pointer"
         >
           <img className="h-10 sm:h-14 object-contain" src={LogoAdmiGas} alt="AdmiGas Logo" />
-          <img className="h-5 sm:h-7 object-contain hidden sm:block" src={LetrasAdmiGas} alt="AdmiGas Letras" />
         </div>
 
         <div className="relative group gap-3 sm:gap-6 items-center flex w-auto justify-end">

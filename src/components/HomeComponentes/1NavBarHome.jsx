@@ -1,4 +1,4 @@
-import LogoAdmiGas from "../../assets/img/icono-logo.png";
+import LogoAdmiGas from "../../assets/img/LP.png";
 import LetrasAdmiGas from "../../assets/img/letras-logo.png";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
@@ -15,7 +15,6 @@ export const NavBarHome = () => {
           className="flex hover:scale-105 transition-all duration-300 items-center gap-3 hover:cursor-pointer"
         >
           <img className="h-14 sm:h-16 object-contain" src={LogoAdmiGas} alt="AdmiGas Logo" />
-          <img className="h-7 sm:h-8 object-contain hidden sm:block" src={LetrasAdmiGas} alt="AdmiGas Letras" />
         </div>
 
         <div className="relative group gap-6 items-center flex w-full justify-center sm:w-auto sm:justify-end">

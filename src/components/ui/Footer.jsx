@@ -1,7 +1,7 @@
 import LogoTechnoArt from "../../assets/img/icono technoart negro.png";
 import LogoLetrasTechnoArt from "../../assets/img/letras techno arte.png";
 import { Icon } from "@iconify/react";
-import LogoTransparente from "../../assets/img/logo-transparente.png";
+import LogoTransparente from "../../assets/img/LP.png";
 
 
 export const Footer = () => {

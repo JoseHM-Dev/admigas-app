@@ -1,4 +1,4 @@
-import LogoTransparente from "../../assets/img/logo-transparente.png";
+import LogoTransparente from "../../assets/img/LP.png";
 import { Link } from "react-router-dom";
 import { Icon } from "@iconify/react";
 
