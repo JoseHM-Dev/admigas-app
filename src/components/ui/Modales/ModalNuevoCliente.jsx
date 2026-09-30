@@ -72,7 +72,7 @@ const ModalNuevoCliente = ({
     // --- NIVEL 1: GOOGLE MAPS (Premium / Limitado por Cuota) ---
     const intentarGoogle = async () => {
       // ⚠️ IMPORTANTE: PEGA TU API KEY AQUÍ ABAJO
-      const apiKey = "AIzaSyCD7MQboidFIhIh7-PzMYrwNINpHYW43l4"; 
+      const apiKey = "AIzaSyAxuYTqTIygOIcowL3R2M7BcgW0NDtpmxw"; 
       
       const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}&language=es-419`;
 
@@ -243,7 +243,6 @@ const ModalNuevoCliente = ({
       },
       options
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Dependencias vacías para evitar loops, la función interna maneja lo necesario
 
   // --- EFECTO DE APERTURA ---
@@ -459,10 +458,10 @@ const ModalNuevoCliente = ({
                 scrollWheelZoom={true}
                 style={{ height: "100%", width: "100%" }}
               >
-                {/* ESTILO NUEVO: CartoDB Voyager (Limpio) */}
+                {/* ESTILO: OpenStreetMap (Gratuito y sin API Key) */}
                 <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 <MapEventsAndUpdater position={mapPosition} />
               </MapContainer>

@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
 export default function ModalMapaClientes({ isOpen, onClose, clientes }) {
   if (!isOpen) return null;
 
-  // Filtramos a los clientes que tengan coordenadas válidas
+  // Filtramos a los clientes que tengan coordenadas válidas (latitud y longitud)
   const clientesConUbicacion = (clientes || []).filter(
     (c) => c.latitud && c.longitud
   );
